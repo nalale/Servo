@@ -8,12 +8,13 @@
 #include <stdint.h>
 
 #include "ST3215.h"
+#include "servoserial.h"
 
 #define PARAMETERS_DATA_LEN		8
 
 
 
-void servoST3215_init(ServoST3215 *this, uint8_t id) {
+void servoST3215_init(ServoST3215 *this, uint8_t id, void *dHUART) {
   this->servoId = id;
   this->errorState = 0;       // Initialize to no error state
   this->doesExist = 0;         // By default, doesn't exist until it's found by ping()
@@ -27,6 +28,8 @@ void servoST3215_init(ServoST3215 *this, uint8_t id) {
   this->mode = 0;
   this->temp = 0;
   this->isMoving = 0;
+
+  initializeServoSerialBus(dHUART);
 }
 
 // Returns true if this servo exists, false otherwise;

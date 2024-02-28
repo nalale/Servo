@@ -73,7 +73,7 @@ typedef struct {
 } ServoST3215;
 
 
-extern void servoST3215_init(ServoST3215 *item, uint8_t id);
+extern void servoST3215_init(ServoST3215 *this, uint8_t id, void *dHUART);
 // Does the servo exist (i.e. respond to ping?)
 extern bool servoST3215_exists(ServoST3215 *item);
 // Ping the servo

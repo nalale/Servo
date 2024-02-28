@@ -6,9 +6,9 @@
  */
 
 #include <stdint.h>
-#include "portservoserial.h"
 
 #include "main.h"
+#include "portservoserial.h"
 
 static UART_HandleTypeDef *uart;
 static uint8_t singlechar;
@@ -66,23 +66,32 @@ bool PortServoSerialGetByte(int8_t * pucByte)
 	*pucByte = (uint8_t)(singlechar);
 	return true;
 }
-/*
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	if(huart->Instance == uart->Instance)
-	{
-		pxMBFrameCBByteReceived();
-		HAL_UART_Receive_IT(uart, &singlechar, 1);
-	}
+
+
+uint32_t PortServoSerialGetMsNow() {
+	return HAL_GetTick();
 }
 
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+uint8_t PortServoSerial_RxCpltCallback(void *huart)
 {
-	if(huart->Instance == uart->Instance)
+	if(((UART_HandleTypeDef*)huart)->Instance == uart->Instance)
 	{
-		pxMBFrameCBTransmitterEmpty();
+		//pxMBFrameCBByteReceived();
+		HAL_UART_Receive_IT(uart, &singlechar, 1);
+		return 1;
 	}
+	return 0;
 }
-*/
+
+uint8_t PortServoSerial_TxCpltCallback(void *huart)
+{
+	if(((UART_HandleTypeDef*)huart)->Instance == uart->Instance)
+	{
+		//pxMBFrameCBTransmitterEmpty();
+		return 1;
+	}
+	return 0;
+}
+
 
 

@@ -68,21 +68,25 @@ BOOL xMBPortSerialGetByte(CHAR * pucByte)
 	return TRUE;
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+BOOL xMBPortSerial_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart->Instance == uart->Instance)
 	{
 		pxMBFrameCBByteReceived();
 		HAL_UART_Receive_IT(uart, &singlechar, 1);
+		return TRUE;
 	}
+	return FALSE;
 }
 
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+BOOL xMBPortSerial_TxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart->Instance == uart->Instance)
 	{
 		pxMBFrameCBTransmitterEmpty();
+		return TRUE;
 	}
+	return FALSE;
 }
 
 #endif

@@ -119,6 +119,10 @@ INLINE BOOL     xMBPortSerialPutByte( CHAR ucByte );
 
 INLINE BOOL     xMBPortSerialPutBytes( volatile UCHAR *ucByte, USHORT usSize );
 
+BOOL 			xMBPortSerial_RxCpltCallback(UART_HandleTypeDef *huart);
+
+BOOL 			xMBPortSerial_TxCpltCallback(UART_HandleTypeDef *huart);
+
 BOOL            xMBMasterPortSerialInit( void *dHUART, ULONG ulBaudRate, void *dHTIM );
 
 void            vMBMasterPortClose( void );

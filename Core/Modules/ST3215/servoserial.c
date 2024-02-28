@@ -1,21 +1,21 @@
 /*
  * SerialProtocol.c
  *
- *  Created on: Feb 26, 2024
+ *  Created on: Jan 26, 2024
  *      Author: alex
  */
 
 
-#include "servoserial.h"
 
 #include <stdint.h>
-
+#include "servoserial.h"
+#include "portservoserial.h"
 
 
 //HardwareSerial *pSerial;
 static void *UART;
 
-void serial_init(void *dHUART) {
+void initializeServoSerialBus(void *dHUART) {
   //Serial1.begin(1000000, SERIAL_8N1, S_RXD, S_TXD);
   UART = dHUART;
 }
@@ -132,7 +132,7 @@ void sendServoPacket(uint8_t servoID, uint8_t instruction, uint8_t* parameters, 
 
 int readServoPacket(uint8_t* readBuffer, uint8_t length) {
   int numBytesRecieved = 0;
-  unsigned long startTime = millis();       // Keep track of the time, in case there's a read timeout
+  unsigned long startTime = PortServoSerialGetMsNow();//millis();       // Keep track of the time, in case there's a read timeout
 
   int numFFs = 0;
 
@@ -172,7 +172,7 @@ int readServoPacket(uint8_t* readBuffer, uint8_t length) {
     }
 
     // Stop condition 2: Check to see if we've timed out
-    unsigned long deltaTime = millis() - startTime;
+    unsigned long deltaTime = PortServoSerialGetMsNow() - startTime;
     if (deltaTime > READ_TIMEOUT_MILLIS) {
       break;
     }
