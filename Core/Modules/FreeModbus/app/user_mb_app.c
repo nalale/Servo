@@ -34,9 +34,12 @@ USHORT   usSRegInBuf[S_REG_INPUT_NREGS]               ;
 #if S_REG_HOLDING_NREGS > 0
 USHORT   usSRegHoldStart                              = S_REG_HOLDING_START;
 USHORT   usSRegHoldBuf[S_REG_HOLDING_NREGS]           ;
+UCHAR	ucSRegHoldChangedMask[S_REG_HOLDING_NREGS];
 #endif
 /*------------------------Slave user code----------------------*/
-extern uint16_t adc_data[2];
+
+void (*eMBRegHoldingWriteCB)(USHORT iRegIndex, USHORT usNRegs);
+
 /*------------------------Slave registers callback function----------------------*/
 
 /**
@@ -138,9 +141,15 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
             {
                 pusRegHoldingBuf[iRegIndex] = *pucRegBuffer++ << 8;
                 pusRegHoldingBuf[iRegIndex] |= *pucRegBuffer++;
+
+                /* add request to queue */
+                if(eMBRegHoldingWriteCB != 0)
+                	eMBRegHoldingWriteCB(iRegIndex, usNRegs);
+
                 iRegIndex++;
                 usNRegs--;
             }
+
             break;
         }
     }

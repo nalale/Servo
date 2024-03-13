@@ -16,8 +16,10 @@ void PortServoClose(void);
 bool PortServoSerialPutByte(int8_t ucByte);
 bool PortServoSerialPutBytes(volatile uint8_t *ucByte, uint16_t usSize);
 bool PortServoSerialGetByte(int8_t * pucByte);
+bool PortServoSerialGetBytes(int8_t *pucBytes, uint16_t usSize);
 
 uint32_t PortServoSerialGetMsNow();
+uint32_t PortServoSerialDiffFrom(uint32_t ms_stamp);
 
 uint8_t PortServoSerial_RxCpltCallback(void *huart);
 uint8_t PortServoSerial_TxCpltCallback(void *huart);

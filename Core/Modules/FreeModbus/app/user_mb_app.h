@@ -9,16 +9,16 @@
 
 /* -----------------------Slave Defines -------------------------------------*/
 #define S_DISCRETE_INPUT_START        0
-#define S_DISCRETE_INPUT_NDISCRETES   1//16
+#define S_DISCRETE_INPUT_NDISCRETES   2//16
 
 #define S_COIL_START                  0
 #define S_COIL_NCOILS                 0//64
 
 #define S_REG_INPUT_START             0
-#define S_REG_INPUT_NREGS             2//100
+#define S_REG_INPUT_NREGS             11//100
 
 #define S_REG_HOLDING_START           0
-#define S_REG_HOLDING_NREGS           0//100
+#define S_REG_HOLDING_NREGS           36//100
 
 /* salve mode: holding register's all address */
 #define          S_HD_RESERVE                     0
@@ -30,5 +30,7 @@
 #define          S_CO_RESERVE                     0
 /* salve mode: discrete's all address */
 #define          S_DI_RESERVE                     0
+
+extern void (*eMBRegHoldingWriteCB)(USHORT iRegIndex, USHORT usNRegs);
 
 #endif // _USER_MB_APP_

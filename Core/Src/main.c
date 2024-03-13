@@ -24,6 +24,16 @@
 #include "mb.h"
 #include "mbport.h"
 #include "user_mb_app.h"
+
+/*#include "ST3215/ST3215.h"
+#include "ST3215/portservoserial.h"
+
+#include "RingBuffer/ring_buffer.h"
+*/
+
+#include "tools.h"
+#include "servo_control.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,6 +60,7 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -61,10 +72,17 @@ static void MX_TIM2_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
+
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+extern uint8_t ucSDiscInBuf[];
+extern uint16_t usSRegInBuf[];
+extern uint16_t usSRegHoldBuf[];
+
 
 /* USER CODE END 0 */
 
@@ -75,7 +93,7 @@ static void MX_USART2_UART_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	uint32_t led_tick_ts = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -103,6 +121,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
   eMBInit( MB_RTU, 0x0A, &huart1, 115200, &htim2 );
   eMBEnable( );
+
+  ServoCtrl_Init(&huart2);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -110,6 +131,14 @@ int main(void)
   while (1)
   {
 	  eMBPoll();
+	  ServoCtrl_Poll();
+
+	  if(msTimer_DiffFrom(led_tick_ts) > 500) {
+
+		  HAL_GPIO_TogglePin(SYSLED_G_GPIO_Port, SYSLED_G_Pin);
+		  led_tick_ts = HAL_GetTick();
+	  }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -296,7 +325,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 1000000;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -365,6 +394,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	uint8_t result = 0;
