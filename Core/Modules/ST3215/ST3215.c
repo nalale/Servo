@@ -249,6 +249,16 @@ int servoST3215_WriteTargetSpeed(ServoST3215 *this, int32_t Speed) {
 	return 1;
 }
 
+int servoST3215_WritePWM(ServoST3215 *this, int32_t newPWM) {
+	parameters[0] = SMS_STS_GOAL_TIME_L;
+
+	// Position
+	packU16toButter(newPWM, &parameters[1]);
+	// Send the write
+	sendServoPacket(this->servoId, INST_WRITE, (uint8_t*)parameters, 3);
+	return 1;
+}
+
 int servoST3215_WriteTorqueLim(ServoST3215 *this, int32_t Lim) {
 
 	parameters[0] = SMS_STS_TORQUE_LIMIT_L;

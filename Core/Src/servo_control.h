@@ -39,10 +39,28 @@ typedef enum {
 } MB_InRegs_Servo_t;
 
 typedef enum {
-	MB_IDX_RW_SERVO_ID = 0,
+	MB_IDX_RW_ADDRESS = 0,
+	MB_IDX_RW_MD_BD,		// скорость modbus
+	MB_IDX_RW_SERVO_BD,		// скорость обмена с серво
+
+	// для группового управления
+	MB_IDX_RW_GROUP_1_ID = 10,
+	MB_IDX_RW_GROUP_1_POS,
+	MB_IDX_RW_GROUP_1_DUTY,
+	MB_IDX_RW_GROUP_1_SPEED,
+	MB_IDX_RW_GROUP_2_ID,
+	MB_IDX_RW_GROUP_2_POS,
+	MB_IDX_RW_GROUP_2_DUTY,
+	MB_IDX_RW_GROUP_2_SPEED,
+	MB_IDX_RW_GROUP_3_ID,
+	MB_IDX_RW_GROUP_3_POS,
+	MB_IDX_RW_GROUP_3_DUTY,
+	MB_IDX_RW_GROUP_3_SPEED,
+
+	// для индивидуального управления
+	MB_IDX_RW_SERVO_ID = 128,
 	MB_IDX_RW_BAUDRATE,
 	MB_IDX_RW_RET_DELAY,
-	MB_IDX_RW_RESP_STATUS,
 	MB_IDX_RW_MIN_ANGLE_LIM,
 	MB_IDX_RW_MAX_ANGLE_LIM,
 	MB_IDX_RW_MAX_TEMP_LIM,
@@ -75,11 +93,15 @@ typedef enum {
 	MB_IDX_RW_RUNNING_TIME,
 	MB_IDX_RW_RUNNING_SPEED,
 	MB_IDX_RW_TORQUE_LIM,
-	MB_IDX_RW_LOCK_MARK,
 
 	MB_IDX_RW_CNT,
 
 }MB_HoldRegs_Servo_t;
+
+typedef enum {
+	MB_IDX_COIL_RESP_STATUS = 0,
+	MB_IDX_COIL_LOCK_MARK,
+} MB_Coils_Servo_t;
 
 typedef enum {
 	MB_IDX_ACTUAL_ASYNC_WRITE_FLAG = 0,

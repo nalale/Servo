@@ -189,6 +189,7 @@ int servoST3215_EnableTorque(ServoST3215 *item, int32_t Enable);
 int servoST3215_WriteAcc(ServoST3215 *this, int32_t acceleration);
 int servoST3215_WritePosition(ServoST3215 *this, int32_t newPosition);
 int servoST3215_WriteTargetSpeed(ServoST3215 *this, int32_t Speed);
+int servoST3215_WritePWM(ServoST3215 *this, int32_t newPWM);
 int servoST3215_WriteTorqueLim(ServoST3215 *this, int32_t Lim);
 
 //int servoST3215_WriteTargetPosition(ServoST3215 *item, int16_t Position, uint16_t Speed, uint8_t ACC);//Задать положение сервопривода

@@ -59,6 +59,14 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define SYSLED_R_Pin GPIO_PIN_13
 #define SYSLED_R_GPIO_Port GPIOC
+#define CLOCK_ENABLE_Pin GPIO_PIN_12
+#define CLOCK_ENABLE_GPIO_Port GPIOB
+#define SHIFT_CLK_Pin GPIO_PIN_13
+#define SHIFT_CLK_GPIO_Port GPIOB
+#define SHIFT_DATA_IN_Pin GPIO_PIN_14
+#define SHIFT_DATA_IN_GPIO_Port GPIOB
+#define LATCH_DATA_Pin GPIO_PIN_8
+#define LATCH_DATA_GPIO_Port GPIOA
 #define RS485_RTS_Pin GPIO_PIN_11
 #define RS485_RTS_GPIO_Port GPIOA
 #define SYSLED_G_Pin GPIO_PIN_8

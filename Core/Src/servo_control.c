@@ -22,7 +22,6 @@ static MBServoSerialNode_t MBServoSerialTable[MB_IDX_RW_CNT] =
 	{ MB_Type_HoldReg, MB_IDX_RW_SERVO_ID, servoST3215_WriteID, SMS_STS_ID, 1 },
 	{ MB_Type_HoldReg, MB_IDX_RW_BAUDRATE, NULL, SMS_STS_BAUD_RATE, 1 },
 	{ MB_Type_HoldReg, MB_IDX_RW_RET_DELAY, NULL, SMS_STS_DELAY_TIME_RETURN, 1 },
-	{ MB_Type_HoldReg, MB_IDX_RW_RESP_STATUS, NULL, SMS_STS_LEVEL_RETURN, 1 },
 	{ MB_Type_HoldReg, MB_IDX_RW_MIN_ANGLE_LIM, servoST3215_WriteMinAngleLimit, SMS_STS_MIN_ANGLE_LIMIT_L, 2 },
 	{ MB_Type_HoldReg, MB_IDX_RW_MAX_ANGLE_LIM, servoST3215_WriteMaxAngleLimit, SMS_STS_MAX_ANGLE_LIMIT_L, 2 },
 	{ MB_Type_HoldReg, MB_IDX_RW_MAX_TEMP_LIM, NULL, SMS_STS_MAX_TEMP_LIMIT, 1 },
@@ -52,10 +51,9 @@ static MBServoSerialNode_t MBServoSerialTable[MB_IDX_RW_CNT] =
 	{ MB_Type_HoldReg, MB_IDX_RW_TORQUE_SW, NULL, SMS_STS_TORQUE_ENABLE, 1 },
 	{ MB_Type_HoldReg, MB_IDX_RW_ACC, servoST3215_WriteAcc, SMS_STS_ACC, 1 },
 	{ MB_Type_HoldReg, MB_IDX_RW_TARGET_POS, servoST3215_WritePosition, SMS_STS_GOAL_POSITION_L, 2 },
-	{ MB_Type_HoldReg, MB_IDX_RW_RUNNING_TIME, NULL, SMS_STS_GOAL_TIME_L, 2 },
+	{ MB_Type_HoldReg, MB_IDX_RW_RUNNING_TIME, servoST3215_WritePWM, SMS_STS_GOAL_TIME_L, 2 },
 	{ MB_Type_HoldReg, MB_IDX_RW_RUNNING_SPEED, servoST3215_WriteTargetSpeed, SMS_STS_GOAL_SPEED_L, 2 },
 	{ MB_Type_HoldReg, MB_IDX_RW_TORQUE_LIM, servoST3215_WriteTorqueLim, SMS_STS_TORQUE_LIMIT_L, 2 },
-	{ MB_Type_HoldReg, MB_IDX_RW_LOCK_MARK, servoST3215_LockEprom, SMS_STS_LOCK, 1 },
 };
 
 static ServoST3215 servoItem[32];
@@ -314,13 +312,6 @@ void ServoCtrl_Poll() {
 	  }
 	 *
 	 */
-
-
-}
-
-void servoST3215_poll(ServoST3215 *this) {
-
-
 
 
 }

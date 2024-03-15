@@ -25,14 +25,10 @@
 #include "mbport.h"
 #include "user_mb_app.h"
 
-/*#include "ST3215/ST3215.h"
-#include "ST3215/portservoserial.h"
-
-#include "RingBuffer/ring_buffer.h"
-*/
-
 #include "tools.h"
 #include "servo_control.h"
+#include "74РС165.h"
+#include "dwt_stm32_delay.h"
 
 /* USER CODE END Includes */
 
@@ -122,7 +118,11 @@ int main(void)
   eMBInit( MB_RTU, 0x0A, &huart1, 115200, &htim2 );
   eMBEnable( );
 
+  DWT_Delay_Init();
+
   ServoCtrl_Init(&huart2);
+
+  shift_reg_init(0, 2);
 
   /* USER CODE END 2 */
 
@@ -134,6 +134,8 @@ int main(void)
 	  ServoCtrl_Poll();
 
 	  if(msTimer_DiffFrom(led_tick_ts) > 500) {
+
+		  latch_next_data();
 
 		  HAL_GPIO_TogglePin(SYSLED_G_GPIO_Port, SYSLED_G_Pin);
 		  led_tick_ts = HAL_GetTick();
@@ -363,10 +365,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(SYSLED_R_GPIO_Port, SYSLED_R_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(RS485_RTS_GPIO_Port, RS485_RTS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, CLOCK_ENABLE_Pin|SHIFT_CLK_Pin|SYSLED_G_Pin|SYSLED_B_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, SYSLED_G_Pin|SYSLED_B_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LATCH_DATA_Pin|RS485_RTS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : SYSLED_R_Pin */
   GPIO_InitStruct.Pin = SYSLED_R_Pin;
@@ -375,19 +377,39 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(SYSLED_R_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : CLOCK_ENABLE_Pin SYSLED_G_Pin SYSLED_B_Pin */
+  GPIO_InitStruct.Pin = CLOCK_ENABLE_Pin|SYSLED_G_Pin|SYSLED_B_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : SHIFT_CLK_Pin */
+  GPIO_InitStruct.Pin = SHIFT_CLK_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+  HAL_GPIO_Init(SHIFT_CLK_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : SHIFT_DATA_IN_Pin */
+  GPIO_InitStruct.Pin = SHIFT_DATA_IN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(SHIFT_DATA_IN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LATCH_DATA_Pin */
+  GPIO_InitStruct.Pin = LATCH_DATA_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+  HAL_GPIO_Init(LATCH_DATA_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : RS485_RTS_Pin */
   GPIO_InitStruct.Pin = RS485_RTS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(RS485_RTS_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : SYSLED_G_Pin SYSLED_B_Pin */
-  GPIO_InitStruct.Pin = SYSLED_G_Pin|SYSLED_B_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
