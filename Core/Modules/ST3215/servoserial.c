@@ -14,11 +14,15 @@
 #include "servoserial.h"
 #include "portservoserial.h"
 
+#define SERIAL_FRAME_LEN	22
 
 //HardwareSerial *pSerial;
 static void *UART;
 static unsigned long startTime = 0;
 static ServoEventType_t ServoSerialEvent = 0;
+static uint16_t ReadAddres = 0;
+static uint16_t ReadLen = 0;
+static uint16_t servoId = 0;
 
 void ServoSerialBusInit(void *dHUART) {
   //Serial1.begin(1000000, SERIAL_8N1, S_RXD, S_TXD);
@@ -44,17 +48,25 @@ void ServoSerialBusStop( void )
     //EXIT_CRITICAL_SECTION(  );
 }
 
-
 // Read a block of memory from a given servo.
 //   servoID:         The ID of the servo to read from.
 //   startAddress:    The start address to begin reading from
 //   numBytesToRead:  The number of bytes to read, starting from the start address
 // NOTE THAT READBUFFER SHOULD ALWAYS INCLUDE THE 6 EXTRA BYTES FOR THE HEADER.
-int readServoMemory(uint8_t servoId, uint8_t startAddress, uint8_t numBytesToRead) {
+int readServoMemory(uint8_t ServoId, uint8_t startAddress, uint8_t numBytesToRead) {
+
+	ReadAddres = startAddress;
+	servoId = ServoId;
+
+	if(ReadLen == 0)
+		ReadLen = numBytesToRead;
+
+	if(numBytesToRead > SERIAL_FRAME_LEN)
+		numBytesToRead = SERIAL_FRAME_LEN;
 
   // First, send the read request
   uint8_t parameters[] = {startAddress, numBytesToRead};
-  sendServoPacket(servoId, INST_READ, (uint8_t*)parameters, 2);
+  sendServoPacket(ServoId, INST_READ, (uint8_t*)parameters, 2);
 
   // Then, read the response
 /*  int totalBytesToRead = numBytesToRead + 6;    // 5 in the header, +1 checksum
@@ -95,6 +107,16 @@ int writeServoReg8(uint8_t servoId, uint8_t regAddress, uint8_t data) {
   return 1;
 }
 
+int16_t parse16BitInt(uint8_t highByte, uint8_t lowByte) {
+	int16_t res = (((uint16_t)highByte) << 8) + lowByte;
+
+	if(res < 0){
+		res &= 0x7fff;
+		res = -res;
+	}
+
+	return res;
+}
 
 // Convert two bytes into a 16-bit integer
 uint16_t parse16BitUInt(uint8_t highByte, uint8_t lowByte) {
@@ -161,6 +183,7 @@ void sendServoPacket(uint8_t servoID, uint8_t instruction, uint8_t* parameters, 
 
 static int numBytesRecieved = 0;
 static int numFFs = 0;
+static uint8_t bytes_await = 0;
 
 
 bool ServoSerialEventGet(ServoEventType_t *Event) {
@@ -173,6 +196,7 @@ void ServoSerialPacketProcessed(void) {
 
 	numFFs = 0;
 	numBytesRecieved = 0;
+	ReadLen = 0;
 }
 
 void ServoSerialWaitingExpired(void) {
@@ -181,6 +205,7 @@ void ServoSerialWaitingExpired(void) {
 
 	numFFs = 0;
 	numBytesRecieved = 0;
+	ReadLen = 0;
 
 	PortServoClose();
 }
@@ -194,27 +219,72 @@ bool ServoSerialTimeoutCheck(void) {
 }
 
 uint8_t receivePacket(void) {
-	uint8_t bytes_await;
+	//uint8_t bytes_await = 0;
 
 	// Header (0xFF 0xFF)
 	if (numFFs != 2) {
-		PortServoSerialGetBytes((int8_t*)readBuffer, 4);
-		if((readBuffer[0] == readBuffer[1]) && (readBuffer[0] == SERVO_PACKET_HEADER_CHAR)){
-			numFFs = 2;
-			numBytesRecieved = 4;
+		PortServoSerialGetBytes((int8_t*)&readBuffer[0], 5);
 
+		if((readBuffer[0] == readBuffer[1]) && (readBuffer[0] == SERVO_PACKET_HEADER_CHAR)){
 			// wait other data
-			bytes_await  = readBuffer[3];
-		}
+			// without status byte
+			bytes_await = readBuffer[3] - 1;
+
+/*			if(bytes_await > SERIAL_FRAME_LEN)
+				bytes_await = SERIAL_FRAME_LEN;
+*/
+			numFFs = 2;
+			numBytesRecieved += 5;
+		} else
+			bytes_await = 0;
 	} else {
+
+/*		PortServoSerialGetBytes((int8_t*)&readBuffer[numBytesRecieved], bytes_await);
+
+		numBytesRecieved += bytes_await;
+		bytes_await = (readBuffer[3] - 1) - (numBytesRecieved - 5);
+
+		if(bytes_await <= 0) {
+			bytes_await = 0;
+			numBytesRecieved = 0;
+			ServoSerialEvent = SERVO_PACKET_RECEIVED;
+		} else if(bytes_await > SERIAL_FRAME_LEN)
+			bytes_await = SERIAL_FRAME_LEN;
+*/
 
 		// Заполняем тело пакета
 		// Store the byte
-		PortServoSerialGetBytes((int8_t*)&readBuffer[numBytesRecieved], readBuffer[3]);
+		if(numBytesRecieved > 5)
+			numBytesRecieved -= 5;
+
+		uint8_t len_without_crc = readBuffer[3] - 2;
+
+		PortServoSerialGetBytes((int8_t*)&readBuffer[numBytesRecieved], len_without_crc);
+		numBytesRecieved += len_without_crc;
 		numFFs = 0;
-		numBytesRecieved = 0;
-		ServoSerialEvent = SERVO_PACKET_RECEIVED;
+
+		//ServoSerialEvent = SERVO_PACKET_RECEIVED;
 		bytes_await = 0;
+
+		// сколько байт осталось считать
+		int8_t left = ReadLen - (ReadAddres + SERIAL_FRAME_LEN);
+
+		if(left < SERIAL_FRAME_LEN && left > 0) {
+			ReadAddres += SERIAL_FRAME_LEN;
+			readServoMemory(servoId, ReadAddres, left);
+		}
+		else if(left >= SERIAL_FRAME_LEN) {
+			ReadAddres += SERIAL_FRAME_LEN;
+			readServoMemory(servoId, ReadAddres, SERIAL_FRAME_LEN);
+		}
+		else {
+			ReadAddres = 0;
+			readBuffer[3] =	ReadLen;
+			numBytesRecieved = 0;
+			ReadLen = 0;
+			ServoSerialEvent = SERVO_PACKET_RECEIVED;
+
+		}
 	}
 
   // Return the number of bytes that were successfully read

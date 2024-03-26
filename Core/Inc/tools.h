@@ -11,4 +11,6 @@
 uint32_t msTimer_Now();
 uint32_t msTimer_DiffFrom(uint32_t last_ms);
 
+unsigned short Crc16(unsigned char *pcBlock, unsigned short len);
+
 #endif /* SRC_TOOLS_H_ */

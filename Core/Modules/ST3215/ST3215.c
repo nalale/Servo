@@ -17,12 +17,11 @@
 
 uint8_t parameters[PARAMETERS_DATA_LEN] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-void servoST3215_init(ServoST3215 *this, uint8_t id, void *dHUART, uint8_t *ActualDataBuf) {
+void servoST3215_init(ServoST3215 *this, uint8_t id, void *dHUART) {
   this->servoId = id;
   this->errorState = 0;       // Initialize to no error state
   this->doesExist = 0;         // By default, doesn't exist until it's found by ping()
 
-  this->pActualData = ActualDataBuf;
   // Load blank values in variables
 /*  this->load = 0;
   this->currentSpeed = 0;
@@ -36,10 +35,6 @@ void servoST3215_init(ServoST3215 *this, uint8_t id, void *dHUART, uint8_t *Actu
   ServoSerialBusInit(dHUART);
 
   //ServoSerialBusStart();
-}
-
-void servoST3215_in_buf_set(ServoST3215 *this, uint8_t *ActualDataBuf) {
-	this->pActualData = ActualDataBuf;
 }
 
 // Returns true if this servo exists, false otherwise;
@@ -90,7 +85,7 @@ int servoST3215_ping(ServoST3215 *this) {
 /*
  *  Setters
  */
-int servoST3215_WriteID(ServoST3215 *this, int32_t NewID) {
+int servoST3215_WriteID(ServoST3215 *this, int16_t NewID) {
 	parameters[0] = SMS_STS_ID;
 	parameters[1] = (uint8_t)NewID;
 
@@ -99,10 +94,10 @@ int servoST3215_WriteID(ServoST3215 *this, int32_t NewID) {
 	//servoST3215_LockEprom(this, true);
 	return 1;
 }
-int servoST3215_WriteBaud(ServoST3215 *this, int32_t Baud);
+int servoST3215_WriteBaud(ServoST3215 *this, int16_t Baud);
 
 // The min angle is a value between -30719 and 30719
-int servoST3215_WriteMinAngleLimit(ServoST3215 *this, int32_t MinAngle) {
+int servoST3215_WriteMinAngleLimit(ServoST3215 *this, int16_t MinAngle) {
 
 	if (MinAngle > 30719)
 		MinAngle = 30719;
@@ -119,7 +114,7 @@ int servoST3215_WriteMinAngleLimit(ServoST3215 *this, int32_t MinAngle) {
 }
 
 // The max angle is a value between -30719 and 30719
-int servoST3215_WriteMaxAngleLimit(ServoST3215 *this, int32_t MaxAngle) {
+int servoST3215_WriteMaxAngleLimit(ServoST3215 *this, int16_t MaxAngle) {
 	if (MaxAngle > 30719)
 		MaxAngle = 30719;
 	else if (MaxAngle < -30719)
@@ -155,7 +150,7 @@ int servoST3215_WriteMinMaxAngleLimit(ServoST3215 *this, int16_t MinAngle, int16
 }
 
 // Change torque in the SRAM and EPROM, The torque limit is a value between 1 and 1000
-int servoST3215_WriteTorqueLimit(ServoST3215 *this, int32_t TorqueLimit) {
+int servoST3215_WriteTorqueLimit(ServoST3215 *this, int16_t TorqueLimit) {
 	if(TorqueLimit >= 0 && TorqueLimit <= 1000) {
 		parameters[0] = SMS_STS_MAX_TORQUE_LIMIT_L;
 		packU16toButter(TorqueLimit, &parameters[1]);
@@ -174,7 +169,7 @@ int servoST3215_WriteTorqueLimit(ServoST3215 *this, int32_t TorqueLimit) {
 2: PWM mode open loop speed
 3: Step mode
 */
-int servoST3215_WriteMode(ServoST3215 *this, int32_t Mode) {
+int servoST3215_WriteMode(ServoST3215 *this, int16_t Mode) {
 	parameters[0] = SMS_STS_MODE;
 	parameters[1] = Mode;
 
@@ -186,7 +181,7 @@ int servoST3215_WriteMode(ServoST3215 *this, int32_t Mode) {
 }
 
 // Change overload current value between 0 and 255
-int servoST3215_WriteOverloadCurrent(ServoST3215 *this, int32_t Current) {
+int servoST3215_WriteOverloadCurrent(ServoST3215 *this, int16_t Current) {
 	parameters[0] = SMS_STS_OVERLOAD_CURRENT_L;
 	packU16toButter(Current, &parameters[1]);
 
@@ -199,7 +194,7 @@ int servoST3215_WriteOverloadCurrent(ServoST3215 *this, int32_t Current) {
 // Torque or Release the servo motor
 // Enable 1: turn on the servo motor, holding its current position
 // Enable 0: turn off its motor
-int servoST3215_EnableTorque(ServoST3215 *this, int32_t Enable) {
+int servoST3215_EnableTorque(ServoST3215 *this, int16_t Enable) {
 	parameters[0] = SMS_STS_TORQUE_ENABLE;
 	parameters[1] = Enable;
 
@@ -208,7 +203,7 @@ int servoST3215_EnableTorque(ServoST3215 *this, int32_t Enable) {
 	return 1;
 }
 // Move the servo to a given position
-int servoST3215_WriteAcc(ServoST3215 *this, int32_t acceleration) {//, uint16_t speed, uint8_t acceleration) {
+int servoST3215_WriteAcc(ServoST3215 *this, int16_t acceleration) {//, uint16_t speed, uint8_t acceleration) {
 
 	parameters[0] = SMS_STS_ACC;
 	// Acceleration
@@ -220,7 +215,7 @@ int servoST3215_WriteAcc(ServoST3215 *this, int32_t acceleration) {//, uint16_t 
 	return 1;
 }
 
-int servoST3215_WritePosition(ServoST3215 *this, int32_t newPosition) {
+int servoST3215_WritePosition(ServoST3215 *this, int16_t newPosition) {
 	parameters[0] = SMS_STS_GOAL_POSITION_L;
 
 	if(newPosition < 0){
@@ -235,7 +230,7 @@ int servoST3215_WritePosition(ServoST3215 *this, int32_t newPosition) {
 	return 1;
 }
 
-int servoST3215_WriteTargetSpeed(ServoST3215 *this, int32_t Speed) {
+int servoST3215_WriteTargetSpeed(ServoST3215 *this, int16_t Speed) {
 	if(Speed < 0) {
 		Speed = -Speed;
 		Speed |= (1<<15);
@@ -249,7 +244,7 @@ int servoST3215_WriteTargetSpeed(ServoST3215 *this, int32_t Speed) {
 	return 1;
 }
 
-int servoST3215_WritePWM(ServoST3215 *this, int32_t newPWM) {
+int servoST3215_WritePWM(ServoST3215 *this, int16_t newPWM) {
 	parameters[0] = SMS_STS_GOAL_TIME_L;
 
 	// Position
@@ -259,7 +254,7 @@ int servoST3215_WritePWM(ServoST3215 *this, int32_t newPWM) {
 	return 1;
 }
 
-int servoST3215_WriteTorqueLim(ServoST3215 *this, int32_t Lim) {
+int servoST3215_WriteTorqueLim(ServoST3215 *this, int16_t Lim) {
 
 	parameters[0] = SMS_STS_TORQUE_LIMIT_L;
 	packU16toButter(Lim, &parameters[1]);
@@ -273,7 +268,7 @@ int servoST3215_RegWriteTargetPosition(ServoST3215 *this, int16_t Position, uint
 void servoST3215_SyncWriteTargetPositions(ServoST3215 *item[], ServoST3215 *itemN, int16_t Position[], uint16_t Speed[], uint8_t ACC[]){ ;}//Задать несколько положений синхронно
 
 
-int servoST3215_LockEprom(ServoST3215 *this, int32_t Enable) {
+int servoST3215_LockEprom(ServoST3215 *this, int16_t Enable) {
 	parameters[0] = SMS_STS_LOCK;
 	parameters[1] = Enable > 0;
 

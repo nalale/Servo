@@ -1,5 +1,7 @@
 #include "user_mb_app.h"
 
+#include "mb_app_data.h"
+
 #if (MB_SLAVE_ASCII_ENABLED > 0 || MB_SLAVE_RTU_ENABLED > 0 || MB_SLAVE_TCP_ENABLED > 0)
 
 /*------------------------Slave mode use these variables----------------------*/
@@ -18,27 +20,27 @@ UCHAR    ucSDiscInBuf[S_DISCRETE_INPUT_NDISCRETES/8]  ;
 #if S_COIL_NCOILS > 0
 USHORT   usSCoilStart                                 = S_COIL_START;
 #if S_COIL_NCOILS%8
-UCHAR    ucSCoilBuf[S_COIL_NCOILS/8+1]                ;
+extern UCHAR    ucSCoilBuf[]; //UCHAR    ucSCoilBuf[S_COIL_NCOILS/8+1]                ;
 #else
-UCHAR    ucSCoilBuf[S_COIL_NCOILS/8]                  ;
+extern UCHAR    ucSCoilBuf[]; //UCHAR    ucSCoilBuf[S_COIL_NCOILS/8]                  ;
 #endif
 #endif
 
 //Slave mode:InputRegister variables
 #if S_REG_INPUT_NREGS > 0
 USHORT   usSRegInStart                                = S_REG_INPUT_START;
-USHORT   usSRegInBuf[S_REG_INPUT_NREGS]               ;
+extern SHORT usSRegInBuf[]; //USHORT   usSRegInBuf[S_REG_INPUT_NREGS]               ;
 #endif
 
 //Slave mode:HoldingRegister variables
 #if S_REG_HOLDING_NREGS > 0
 USHORT   usSRegHoldStart                              = S_REG_HOLDING_START;
-USHORT   usSRegHoldBuf[S_REG_HOLDING_NREGS]           ;
+extern SHORT usSRegHoldBuf[] ;//	USHORT   usSRegHoldBuf[S_REG_HOLDING_NREGS]           ;
 UCHAR	ucSRegHoldChangedMask[S_REG_HOLDING_NREGS];
 #endif
 /*------------------------Slave user code----------------------*/
 
-void (*eMBRegHoldingWriteCB)(USHORT iRegIndex, USHORT usNRegs);
+void (*eMBRegHoldingWriteCB)(USHORT RegType, USHORT iRegIndex, USHORT usNRegs);
 
 /*------------------------Slave registers callback function----------------------*/
 
@@ -56,7 +58,7 @@ eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNReg
 #if S_REG_INPUT_NREGS > 0
     eMBErrorCode    eStatus = MB_ENOERR;
     USHORT          iRegIndex;
-    USHORT *        pusRegInputBuf;
+    SHORT *        pusRegInputBuf;
     USHORT          REG_INPUT_START;
     USHORT          REG_INPUT_NREGS;
     USHORT          usRegInStart;
@@ -74,8 +76,21 @@ eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNReg
         iRegIndex = usAddress - usRegInStart;
         while (usNRegs > 0)
         {
-            *pucRegBuffer++ = (UCHAR) (pusRegInputBuf[iRegIndex] >> 8);
-            *pucRegBuffer++ = (UCHAR) (pusRegInputBuf[iRegIndex] & 0xFF);
+        	/*if(!app_mb_inreg_exists(usNRegs))
+        		continue;
+			*/
+
+        	MBRegsTableNote_t *reg = app_mb_inreg_note_find(iRegIndex);
+
+			if(reg == NULL) {
+				eStatus = MB_ENOREG;
+				break;
+			}
+
+			int16_t value = *(reg->pMBRegValue);
+
+            *pucRegBuffer++ = (UCHAR) (value >> 8);
+            *pucRegBuffer++ = (UCHAR) (value & 0xFF);
             iRegIndex++;
             usNRegs--;
         }
@@ -106,7 +121,7 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
 #if S_REG_HOLDING_NREGS > 0
     eMBErrorCode    eStatus = MB_ENOERR;
     USHORT          iRegIndex;
-    USHORT *        pusRegHoldingBuf;
+    SHORT *        pusRegHoldingBuf;
     USHORT          REG_HOLDING_START;
     USHORT          REG_HOLDING_NREGS;
     USHORT          usRegHoldStart;
@@ -128,8 +143,21 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
         case MB_REG_READ:
             while (usNRegs > 0)
             {
-                *pucRegBuffer++ = (UCHAR) (pusRegHoldingBuf[iRegIndex] >> 8);
-                *pucRegBuffer++ = (UCHAR) (pusRegHoldingBuf[iRegIndex] & 0xFF);
+
+                /**pucRegBuffer++ = (UCHAR) (pusRegHoldingBuf[iRegIndex] >> 8);
+                *pucRegBuffer++ = (UCHAR) (pusRegHoldingBuf[iRegIndex] & 0xFF); */
+
+            	MBRegsTableNote_t *reg = app_mb_note_find(iRegIndex);
+
+            	if(reg == NULL) {
+            		eStatus = MB_ENOREG;
+            		break;
+            	}
+
+            	int16_t value = *(reg->pMBRegValue);
+            	*pucRegBuffer++ = (UCHAR) (value >> 8);
+            	*pucRegBuffer++ = (UCHAR) (value & 0xFF);
+
                 iRegIndex++;
                 usNRegs--;
             }
@@ -139,12 +167,23 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
         case MB_REG_WRITE:
             while (usNRegs > 0)
             {
-                pusRegHoldingBuf[iRegIndex] = *pucRegBuffer++ << 8;
-                pusRegHoldingBuf[iRegIndex] |= *pucRegBuffer++;
+                //pusRegHoldingBuf[iRegIndex] = *pucRegBuffer++ << 8;
+                //pusRegHoldingBuf[iRegIndex] |= *pucRegBuffer++;
+
+            	MBRegsTableNote_t *reg = app_mb_note_find(iRegIndex);
+            	if(reg == NULL) {
+					eStatus = MB_ENOREG;
+					break;
+				}
+
+            	int16_t val = *pucRegBuffer++ << 8;
+            	val |= *pucRegBuffer++;
+
+				*(reg->pMBRegValue) = val;
 
                 /* add request to queue */
                 if(eMBRegHoldingWriteCB != 0)
-                	eMBRegHoldingWriteCB(iRegIndex, usNRegs);
+                	eMBRegHoldingWriteCB(MB_RegType_HoldReg, iRegIndex, val);
 
                 iRegIndex++;
                 usNRegs--;
@@ -182,7 +221,7 @@ eMBErrorCode eMBRegCoilsCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNCoi
     USHORT          COIL_START;
     USHORT          COIL_NCOILS;
     USHORT          usCoilStart;
-    iNReg =  usNCoils / 8 + 1;
+    iNReg =  usNCoils;// / 8 + 1;
 
     pucCoilBuf = ucSCoilBuf;
     COIL_START = S_COIL_START;
@@ -194,43 +233,78 @@ eMBErrorCode eMBRegCoilsCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNCoi
 
     if( ( usAddress >= COIL_START ) && ( usAddress + usNCoils <= COIL_START + COIL_NCOILS ) )
     {
-        iRegIndex = (USHORT) (usAddress - usCoilStart) / 8;
-        iRegBitIndex = (USHORT) (usAddress - usCoilStart) % 8;
+        iRegIndex = (USHORT) (usAddress - usCoilStart);// / 8;
+        //iRegBitIndex = (USHORT) (usAddress - usCoilStart) % 8;
         switch ( eMode )
         {
         /* read current coil values from the protocol stack. */
         case MB_REG_READ:
-            while (iNReg > 0)
+            while (usNCoils > 0)
             {
-                *pucRegBuffer++ = xMBUtilGetBits(&pucCoilBuf[iRegIndex++],
-                        iRegBitIndex, 8);
-                iNReg--;
+                //*pucRegBuffer++ = xMBUtilGetBits(&pucCoilBuf[iRegIndex++], iRegBitIndex, 8);
+                //iNReg--;
+            	MBRegsTableNote_t *reg = app_mb_coil_note_find(iRegIndex);
+
+				if(reg == NULL) {
+					eStatus = MB_ENOREG;
+					break;
+				}
+
+				int16_t value = *(reg->pMBRegValue);
+				*pucRegBuffer++ = (UCHAR)value;
+
+				iRegIndex++;
+				usNCoils--;
             }
-            pucRegBuffer--;
+            //pucRegBuffer--;
             /* last coils */
-            usNCoils = usNCoils % 8;
+            //usNCoils = usNCoils % 8;
             /* filling zero to high bit */
-            *pucRegBuffer = *pucRegBuffer << (8 - usNCoils);
-            *pucRegBuffer = *pucRegBuffer >> (8 - usNCoils);
+            //*pucRegBuffer = *pucRegBuffer << (8 - usNCoils);
+            //*pucRegBuffer = *pucRegBuffer >> (8 - usNCoils);
             break;
 
             /* write current coil values with new values from the protocol stack. */
         case MB_REG_WRITE:
-            while (iNReg > 1)
-            {
-                xMBUtilSetBits(&pucCoilBuf[iRegIndex++], iRegBitIndex, 8,
-                        *pucRegBuffer++);
-                iNReg--;
-            }
-            /* last coils */
-            usNCoils = usNCoils % 8;
-            /* xMBUtilSetBits has bug when ucNBits is zero */
-            if (usNCoils != 0)
-            {
-                xMBUtilSetBits(&pucCoilBuf[iRegIndex++], iRegBitIndex, usNCoils,
-                        *pucRegBuffer++);
-            }
-            break;
+        	while (usNCoils > 0)
+			{
+				//pusRegHoldingBuf[iRegIndex] = *pucRegBuffer++ << 8;
+				//pusRegHoldingBuf[iRegIndex] |= *pucRegBuffer++;
+
+				MBRegsTableNote_t *reg = app_mb_coil_note_find(iRegIndex);
+				if(reg == NULL) {
+					eStatus = MB_ENOREG;
+					break;
+				}
+
+				int16_t val = *pucRegBuffer++;
+
+				*(reg->pMBRegValue) = val;
+
+				/* add request to queue */
+				if(eMBRegHoldingWriteCB != 0)
+					eMBRegHoldingWriteCB(MB_RegType_Coil, iRegIndex, val);
+
+				iRegIndex++;
+				usNCoils--;
+			}
+
+			break;
+//            while (iNReg > 1)
+//            {
+//                xMBUtilSetBits(&pucCoilBuf[iRegIndex++], iRegBitIndex, 8,
+//                        *pucRegBuffer++);
+//                iNReg--;
+//            }
+//            /* last coils */
+//            usNCoils = usNCoils % 8;
+//            /* xMBUtilSetBits has bug when ucNBits is zero */
+//            if (usNCoils != 0)
+//            {
+//                xMBUtilSetBits(&pucCoilBuf[iRegIndex++], iRegBitIndex, usNCoils,
+//                        *pucRegBuffer++);
+//            }
+//            break;
         }
     }
     else
@@ -275,6 +349,11 @@ eMBErrorCode eMBRegDiscreteCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT us
     {
         iRegIndex = (USHORT) (usAddress - usDiscreteInputStart) / 8;
         iRegBitIndex = (USHORT) (usAddress - usDiscreteInputStart) % 8;
+
+        if(!app_mb_din_exists(iRegIndex, iRegBitIndex)) {
+        	return MB_ENOREG;
+        }
+
 
         while (iNReg > 0)
         {

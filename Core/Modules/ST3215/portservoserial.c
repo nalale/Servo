@@ -49,7 +49,8 @@ void PortServoSerialEnable(bool xRxEnable, bool xTxEnable)
 void PortServoClose(void)
 {
 	HAL_UART_AbortReceive_IT(uart);
-	//HAL_UART_AbortTransmit_IT(uart);
+	HAL_UART_AbortTransmit_IT(uart);
+	//HAL_UART_Abort_IT(uart);
 }
 
 bool PortServoSerialPutByte(int8_t ucByte)
@@ -100,6 +101,8 @@ uint8_t PortServoSerial_RxCpltCallback(void *huart)
 		uint8_t bytes_await = receivePacket();
 		if(bytes_await > 0)
 			HAL_UART_Receive_IT(uart, (uint8_t*)arrayChar, bytes_await);
+		else
+
 		//HAL_UART_Receive_IT(uart, &singlechar, 1);
 
 		return 1;
@@ -112,7 +115,7 @@ uint8_t PortServoSerial_TxCpltCallback(void *huart)
 	if(((UART_HandleTypeDef*)huart)->Instance == uart->Instance)
 	{
 		//pxMBFrameCBTransmitterEmpty();
-		HAL_UART_Receive_IT(uart, (uint8_t *)arrayChar, 4);
+		HAL_UART_Receive_IT(uart, (uint8_t *)arrayChar, 5);
 		return 1;
 	}
 	return 0;

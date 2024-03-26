@@ -17,6 +17,7 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -27,8 +28,9 @@
 
 #include "tools.h"
 #include "servo_control.h"
-#include "74РС165.h"
 #include "dwt_stm32_delay.h"
+#include "74HC165.h"
+#include "mb_app_data.h"
 
 /* USER CODE END Includes */
 
@@ -90,6 +92,7 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	uint32_t led_tick_ts = 0;
+	uint32_t sys_tick_ts = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -118,11 +121,12 @@ int main(void)
   eMBInit( MB_RTU, 0x0A, &huart1, 115200, &htim2 );
   eMBEnable( );
 
-  DWT_Delay_Init();
+//  DWT_Delay_Init();
 
   ServoCtrl_Init(&huart2);
 
-  shift_reg_init(0, 2);
+  shift_reg_init(0, 50);
+  app_mb_data_init();
 
   /* USER CODE END 2 */
 
@@ -135,10 +139,19 @@ int main(void)
 
 	  if(msTimer_DiffFrom(led_tick_ts) > 500) {
 
-		  latch_next_data();
-
 		  HAL_GPIO_TogglePin(SYSLED_G_GPIO_Port, SYSLED_G_Pin);
 		  led_tick_ts = HAL_GetTick();
+	  }
+
+	  if(msTimer_DiffFrom(sys_tick_ts) > 50) {
+
+		  MBRegsTableNote_t* holdReg = app_mb_coil_note_find(MB_IDX_COIL_FLASH_WRITE);
+		  if(*holdReg->pMBRegValue) {
+			  app_mb_cfg_data_store();
+			  *holdReg->pMBRegValue = 0;
+		  }
+
+		  sys_tick_ts = HAL_GetTick();
 	  }
 
     /* USER CODE END WHILE */
@@ -419,20 +432,34 @@ static void MX_GPIO_Init(void)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	uint8_t result = 0;
+	uint8_t result = 0, stat_reg = 0;
+
+	//Overrun flag
+	if(__HAL_UART_GET_FLAG(huart, UART_FLAG_ORE)) {
+		stat_reg = huart->Instance->SR;
+		//uint8_t dr = uart->Instance->DR;
+	}
+
 	result = xMBPortSerial_RxCpltCallback(huart);
 
 	if(result == 0)
 		PortServoSerial_RxCpltCallback(huart);
+
+
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	uint8_t result = 0;
+	uint8_t result = 0, stat_reg = 0, data_reg = 0;
 	result = xMBPortSerial_TxCpltCallback(huart);
 
 	if(result == 0)
 		PortServoSerial_TxCpltCallback(huart);
+
+	if(__HAL_UART_GET_FLAG(huart, UART_FLAG_ORE)) {
+		stat_reg = huart->Instance->SR;
+		data_reg = huart->Instance->DR;
+	}
 }
 /* USER CODE END 4 */
 
