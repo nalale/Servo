@@ -9,7 +9,7 @@
 
 /* -----------------------Slave Defines -------------------------------------*/
 
-#define MB_IDX_SERVO_DATA_START		64
+#define MB_IDX_SERVO_DATA_START		16
 
 typedef enum {
 	MB_INREG_DEV_FW_VER_MAJ = 0,
@@ -46,17 +46,14 @@ typedef enum {
 	MB_IDX_DEV_CFG_DATA_LEN,
 
 	// для группового управления
-	MB_IDX_RW_GROUP_1_ID = 10,
-	MB_IDX_RW_GROUP_1_POS,
-	MB_IDX_RW_GROUP_1_DUTY,
-	MB_IDX_RW_GROUP_1_SPEED,
+	MB_IDX_RW_GROUP_1_ID = 4,
 	MB_IDX_RW_GROUP_2_ID,
-	MB_IDX_RW_GROUP_2_POS,
-	MB_IDX_RW_GROUP_2_DUTY,
-	MB_IDX_RW_GROUP_2_SPEED,
 	MB_IDX_RW_GROUP_3_ID,
+	MB_IDX_RW_GROUP_1_POS,
+	MB_IDX_RW_GROUP_2_POS,
 	MB_IDX_RW_GROUP_3_POS,
-	MB_IDX_RW_GROUP_3_DUTY,
+	MB_IDX_RW_GROUP_1_SPEED,
+	MB_IDX_RW_GROUP_2_SPEED,
 	MB_IDX_RW_GROUP_3_SPEED,
 
 	MB_IDX_RW_UNIT_DATA_LEN,		// определяет количество регистров для устройства, а не привода
@@ -147,16 +144,16 @@ typedef enum {
 #define MB_DIN_CNT	((MB_DIN_DATA_LEN - MB_IDX_SERVO_DATA_START) + MB_DIN_DEV_DATA_LEN)
 
 #define S_DISCRETE_INPUT_START        0
-#define S_DISCRETE_INPUT_NDISCRETES   72//56//16
+#define S_DISCRETE_INPUT_NDISCRETES   144 //18 * 8
 
 #define S_COIL_START                  0
-#define S_COIL_NCOILS                 66 // MB_COILS_DATA_LEN//64
+#define S_COIL_NCOILS                 18 // MB_COILS_DATA_LEN//64
 
 #define S_REG_INPUT_START             0
-#define S_REG_INPUT_NREGS             75//100
+#define S_REG_INPUT_NREGS             27// 100
 
 #define S_REG_HOLDING_START           0
-#define S_REG_HOLDING_NREGS           108 //MB_SERVO_DATA_LEN //100
+#define S_REG_HOLDING_NREGS           60 //MB_SERVO_DATA_LEN //100
 
 /* salve mode: holding register's all address */
 #define          S_HD_RESERVE                     0
