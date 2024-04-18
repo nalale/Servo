@@ -12,7 +12,7 @@ USHORT   usSDiscInStart                               = S_DISCRETE_INPUT_START;
 #if S_DISCRETE_INPUT_NDISCRETES%8
 UCHAR    ucSDiscInBuf[S_DISCRETE_INPUT_NDISCRETES/8+1];
 #else
-UCHAR    ucSDiscInBuf[S_DISCRETE_INPUT_NDISCRETES/8]  ;
+extern UCHAR    ucSDiscInBuf[]; //[S_DISCRETE_INPUT_NDISCRETES/8]  ;
 #endif
 #endif
 
@@ -41,6 +41,10 @@ UCHAR	ucSRegHoldChangedMask[S_REG_HOLDING_NREGS];
 /*------------------------Slave user code----------------------*/
 
 void (*eMBRegHoldingWriteCB)(USHORT RegType, USHORT iRegIndex, USHORT usNRegs);
+int8_t (*eMBRegHoldingReadCB)(USHORT RegType, USHORT iRegIndex, USHORT *uspData);
+
+int8_t (*eMBRegInputReadCB)(USHORT RegType, USHORT iRegIndex, USHORT *uspData);
+
 
 /*------------------------Slave registers callback function----------------------*/
 
@@ -80,7 +84,7 @@ eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNReg
         		continue;
 			*/
 
-        	MBRegsTableNote_t *reg = app_mb_inreg_note_find(iRegIndex);
+/*        	MBRegsTableNote_t *reg = app_mb_inreg_note_find(iRegIndex);
 
 			if(reg == NULL) {
 				eStatus = MB_ENOREG;
@@ -88,6 +92,18 @@ eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNReg
 			}
 
 			int16_t value = *(reg->pMBRegValue);
+*/
+        	int16_t value = 0;
+        	uint8_t status = 0;
+
+        	if(eMBRegInputReadCB != 0)
+        		status = eMBRegInputReadCB(MB_RegType_InReg, iRegIndex, (USHORT*)&value);
+
+        	if(status) {
+        		eStatus = MB_ENOREG;
+				break;
+        	}
+
 
             *pucRegBuffer++ = (UCHAR) (value >> 8);
             *pucRegBuffer++ = (UCHAR) (value & 0xFF);
@@ -143,18 +159,27 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
         case MB_REG_READ:
             while (usNRegs > 0)
             {
-
                 /**pucRegBuffer++ = (UCHAR) (pusRegHoldingBuf[iRegIndex] >> 8);
                 *pucRegBuffer++ = (UCHAR) (pusRegHoldingBuf[iRegIndex] & 0xFF); */
 
-            	MBRegsTableNote_t *reg = app_mb_note_find(iRegIndex);
+            	/*MBRegsTableNote_t *reg = app_mb_note_find(iRegIndex);
 
             	if(reg == NULL) {
             		eStatus = MB_ENOREG;
             		break;
             	}
 
-            	int16_t value = *(reg->pMBRegValue);
+            	int16_t value = *(reg->pMBRegValue);*/
+            	int16_t value = 0;
+            	int8_t status = 0;
+            	if(eMBRegHoldingWriteCB != 0)
+            		status = eMBRegHoldingReadCB(MB_RegType_HoldReg, iRegIndex, (USHORT*)&value);
+
+            	if(status) {
+            		eStatus = MB_ENOREG;
+            		break;
+            	}
+
             	*pucRegBuffer++ = (UCHAR) (value >> 8);
             	*pucRegBuffer++ = (UCHAR) (value & 0xFF);
 
@@ -170,17 +195,17 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
                 //pusRegHoldingBuf[iRegIndex] = *pucRegBuffer++ << 8;
                 //pusRegHoldingBuf[iRegIndex] |= *pucRegBuffer++;
 
-            	MBRegsTableNote_t *reg = app_mb_note_find(iRegIndex);
+            	int16_t val = *pucRegBuffer++ << 8;
+            	val |= *pucRegBuffer++;
+
+/*            	MBRegsTableNote_t *reg = app_mb_note_find(iRegIndex);
             	if(reg == NULL) {
 					eStatus = MB_ENOREG;
 					break;
 				}
 
-            	int16_t val = *pucRegBuffer++ << 8;
-            	val |= *pucRegBuffer++;
-
 				*(reg->pMBRegValue) = val;
-
+*/
                 /* add request to queue */
                 if(eMBRegHoldingWriteCB != 0)
                 	eMBRegHoldingWriteCB(MB_RegType_HoldReg, iRegIndex, val);
@@ -354,6 +379,8 @@ eMBErrorCode eMBRegDiscreteCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT us
         	return MB_ENOREG;
         }
 
+
+        ReadInputParameters(MB_RegType_DIn, iRegIndex, pucDiscreteInputBuf);
 
         while (iNReg > 0)
         {

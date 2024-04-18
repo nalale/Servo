@@ -9,7 +9,7 @@
 
 /* -----------------------Slave Defines -------------------------------------*/
 
-#define MB_IDX_SERVO_DATA_START		16
+#define MB_IDX_SERVO_DATA_START		64
 
 typedef enum {
 	MB_INREG_DEV_FW_VER_MAJ = 0,
@@ -36,7 +36,8 @@ typedef enum {
 	MB_IDX_RO_CNT,
 } MB_InRegs_Servo_t;
 
-#define MB_INREGS_CNT	((MB_IDX_RO_CNT - MB_IDX_SERVO_DATA_START) + MB_INDEG_DEV_DATA_LEN - 1)
+#define MB_INREGS_DEV_CNT	(MB_IDX_RO_CNT - MB_IDX_SERVO_DATA_START)
+#define MB_INREGS_CNT		((MB_IDX_RO_CNT - MB_IDX_SERVO_DATA_START) + MB_INDEG_DEV_DATA_LEN)
 
 typedef enum {
 	MB_IDX_CFG_ADDRESS = 0,
@@ -46,7 +47,7 @@ typedef enum {
 	MB_IDX_DEV_CFG_DATA_LEN,
 
 	// для группового управления
-	MB_IDX_RW_GROUP_1_ID = 4,
+	MB_IDX_RW_GROUP_1_ID = 10,
 	MB_IDX_RW_GROUP_2_ID,
 	MB_IDX_RW_GROUP_3_ID,
 	MB_IDX_RW_GROUP_1_POS,
@@ -135,8 +136,7 @@ typedef enum {
 	MB_IDX_DIN_SW_49_50_STATE,
 	MB_DIN_DEV_DATA_LEN,
 
-	MB_IDX_ACTUAL_SERVO_STATES = MB_IDX_SERVO_DATA_START,				// online flag, moving flag,
-	MB_IDX_SERVO_SW_STATES,				// sw1, sw2, sw3, sw4
+	MB_IDX_ACTUAL_SERVO_STATES = MB_IDX_SERVO_DATA_START,				// online flag, moving flag, sw1, sw2, sw3, sw4
 
 	MB_DIN_DATA_LEN,
 } MB_DIns_Servo_t;
@@ -144,16 +144,16 @@ typedef enum {
 #define MB_DIN_CNT	((MB_DIN_DATA_LEN - MB_IDX_SERVO_DATA_START) + MB_DIN_DEV_DATA_LEN)
 
 #define S_DISCRETE_INPUT_START        0
-#define S_DISCRETE_INPUT_NDISCRETES   144 //18 * 8
+#define S_DISCRETE_INPUT_NDISCRETES   64 //18 * 8
 
 #define S_COIL_START                  0
-#define S_COIL_NCOILS                 18 // MB_COILS_DATA_LEN//64
+#define S_COIL_NCOILS                 66 // MB_COILS_DATA_LEN//64
 
 #define S_REG_INPUT_START             0
-#define S_REG_INPUT_NREGS             27// 100
+#define S_REG_INPUT_NREGS             75
 
 #define S_REG_HOLDING_START           0
-#define S_REG_HOLDING_NREGS           60 //MB_SERVO_DATA_LEN //100
+#define S_REG_HOLDING_NREGS           108 //MB_SERVO_DATA_LEN //100
 
 /* salve mode: holding register's all address */
 #define          S_HD_RESERVE                     0
@@ -167,5 +167,8 @@ typedef enum {
 #define          S_DI_RESERVE                     0
 
 extern void (*eMBRegHoldingWriteCB)(USHORT RegType, USHORT iRegIndex, USHORT usNRegs);
+extern int8_t (*eMBRegHoldingReadCB)(USHORT RegType, USHORT iRegIndex, USHORT *uspData);
+
+extern int8_t (*eMBRegInputReadCB)(USHORT RegType, USHORT iRegIndex, USHORT *uspData);
 
 #endif // _USER_MB_APP_

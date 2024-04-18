@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "tools.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -75,7 +75,7 @@ void Error_Handler(void);
 #define SYSLED_B_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-
+#define USER_SWITCH_SENS_NUMBER		50
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

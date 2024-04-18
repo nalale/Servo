@@ -71,9 +71,9 @@ bool PortServoSerialGetByte(int8_t * pucByte)
 	return true;
 }
 
-bool PortServoSerialGetBytes(int8_t *pucBytes, uint16_t usSize)
+bool PortServoSerialGetBytes(int8_t *pucBytes, uint16_t usSize, uint16_t startByte)
 {
-	memcpy(pucBytes, arrayChar, usSize);
+	memcpy(pucBytes, &arrayChar[startByte], usSize);
 	//*pucByte = (uint8_t)(singlechar);
 	return true;
 }
@@ -115,7 +115,8 @@ uint8_t PortServoSerial_TxCpltCallback(void *huart)
 	if(((UART_HandleTypeDef*)huart)->Instance == uart->Instance)
 	{
 		//pxMBFrameCBTransmitterEmpty();
-		HAL_UART_Receive_IT(uart, (uint8_t *)arrayChar, 5);
+		uint8_t bytes_await = receivePacketLen();
+		HAL_UART_Receive_IT(uart, (uint8_t *)arrayChar, bytes_await);//5);
 		return 1;
 	}
 	return 0;

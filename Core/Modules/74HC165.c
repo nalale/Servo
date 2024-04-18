@@ -13,7 +13,10 @@
 //static SPI_HandleTypeDef *pspi;
 static uint16_t reg_num;
 static uint8_t RxBuffer[13];
+static uint32_t shreg_read_ts = 0;
 
+static void shift_reg_latch_data (void);
+static int8_t shift_reg_switches_get(uint8_t *sw_array, uint16_t len);
 
 void shift_reg_init(void *hspi, uint16_t sens_num) {
 	//pspi = hspi;
@@ -23,7 +26,16 @@ void shift_reg_init(void *hspi, uint16_t sens_num) {
 	HAL_GPIO_WritePin(LATCH_DATA_GPIO_Port, LATCH_DATA_Pin, GPIO_PIN_SET);
 }
 
-void shift_reg_latch_data () {
+void shift_reg_proccess(uint8_t *sw_array, uint16_t bits_len) {
+	if(msTimer_DiffFrom(shreg_read_ts) >= 200) {
+		shreg_read_ts = HAL_GetTick();
+
+		shift_reg_latch_data();
+		shift_reg_switches_get(sw_array, bits_len);
+	}
+}
+
+static void shift_reg_latch_data () {
 	// Строб сигнала !PL, для захвата данных
 	HAL_GPIO_WritePin(LATCH_DATA_GPIO_Port, LATCH_DATA_Pin, GPIO_PIN_RESET);
 
@@ -77,12 +89,17 @@ int8_t shift_reg_din_get(uint16_t reg, uint8_t din_num, SwitchSensState_t* resul
 	return 1;
 }
 
-// функция перевода показаний регистров в битовый массив
-int8_t shift_reg_switches_get(uint8_t *sw_array, uint16_t len) {
+// функция перевода состояние датчиков в битовый массив
+/*
+ * @param: sw_array - битовый массив состояний
+ * 			bits_len - количество бит
+ */
+static int8_t shift_reg_switches_get(uint8_t *sw_array, uint16_t bits_len) {
+	uint16_t bit_pos = 0;
 	// пройти по всем сдвиговым регистрам
-	for(uint8_t reg = 0, bit = 0, sw_cnt = 0; (reg < reg_num) && (sw_cnt < len); reg++) {
+	for(uint8_t reg = 0, bit = 0, sw_cnt = 0; (reg < reg_num) && (bit_pos < bits_len); reg++) {
 		// обработать входы по 2
-		for(uint8_t din = 0; din < 4; din++, bit++) {
+		for(uint8_t din = 0; din < 4; din++, bit++, bit_pos++) {
 			uint8_t pos = 0;
 			shift_reg_din_get(reg, din, &pos);
 			//shift_reg_data_get(sens_num + 1, &pos);

@@ -16,10 +16,11 @@ typedef enum {
 } SwitchSensState_t;
 
 void shift_reg_init(void *hspi, uint16_t registers_num);
-void shift_reg_latch_data (void);
+void shift_reg_proccess(uint8_t *sw_array, uint16_t bits_len);
+
 int8_t shift_reg_data_get(uint16_t sensor_num, SwitchSensState_t* result);
 int8_t shift_reg_din_get(uint16_t reg, uint8_t din_num, SwitchSensState_t* result);
-int8_t shift_reg_switches_get(uint8_t *sw_array, uint16_t len);
+
 
 
 #endif /* MODULES_74HC165_H_ */

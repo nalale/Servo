@@ -26,7 +26,6 @@
 #include "mbport.h"
 #include "user_mb_app.h"
 
-#include "tools.h"
 #include "servo_control.h"
 #include "dwt_stm32_delay.h"
 #include "74HC165.h"
@@ -125,7 +124,7 @@ int main(void)
 
   ServoCtrl_Init(&huart2);
 
-  shift_reg_init(0, 50);
+  shift_reg_init(0, USER_SWITCH_SENS_NUMBER);
   app_mb_data_init();
 
   /* USER CODE END 2 */
@@ -134,8 +133,12 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  // Опрос ModBus
 	  eMBPoll();
-	  ServoCtrl_Poll();
+	  // Обработка сервоприводов
+	  ServoCtrl_Process();
+	  // обработка концевиков
+	  shift_reg_proccess(&ucSDiscInBuf[MB_IDX_DIN_SW_1_8_STATE], USER_SWITCH_SENS_NUMBER);
 
 	  if(msTimer_DiffFrom(led_tick_ts) > 500) {
 
@@ -450,16 +453,16 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	uint8_t result = 0, stat_reg = 0, data_reg = 0;
+	uint8_t result = 0; //, stat_reg = 0, data_reg = 0;
 	result = xMBPortSerial_TxCpltCallback(huart);
 
 	if(result == 0)
 		PortServoSerial_TxCpltCallback(huart);
 
-	if(__HAL_UART_GET_FLAG(huart, UART_FLAG_ORE)) {
+/*	if(__HAL_UART_GET_FLAG(huart, UART_FLAG_ORE)) {
 		stat_reg = huart->Instance->SR;
 		data_reg = huart->Instance->DR;
-	}
+	}*/
 }
 /* USER CODE END 4 */
 

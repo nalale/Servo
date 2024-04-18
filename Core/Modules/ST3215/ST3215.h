@@ -5,12 +5,13 @@
  *      Author: alex
  */
 
-#include <stdbool.h>
-
 #ifndef MODULES_ST3215_ST3215_H_
 #define MODULES_ST3215_ST3215_H_
 
+#include <stdbool.h>
 #include "ST3215/servoserial.h"
+
+#define DEV_RO_VALUES_CNT	11
 
 // Register map (from the Waveshare driver)
 typedef enum {
@@ -93,6 +94,118 @@ typedef enum {
 enum baud {BAUD_1000000, BAUD_500000, BAUD_250000, BAUD_128000, BAUD_115200, BAUD_76800, BAUD_57600, BAUD_38400, NBBAUD};
 enum mode {POSITION, SPEED, PWM, STEP, NBMODE};
 
+typedef enum { Req_Ping = 0, Req_Poll, Req_Write, Req_Cnt} Requests_t;
+
+typedef struct {
+	// RO EEPROM
+	uint16_t fw_main_ver;
+	uint16_t fw_sub_ver;
+	uint16_t servo_main_ver;
+	uint16_t servo_sub_ver;
+} Servo_EEPROM_ROData_t;
+
+typedef struct {
+	// RO SRAM
+	uint16_t actual_pos;
+	uint16_t actual_speed;
+	uint16_t actual_load;
+	uint16_t actual_voltage;
+	uint16_t actual_temperature;
+	uint16_t actual_servo_status;
+	uint16_t actual_current;
+} Servo_FLASH_ActualData_t;
+
+typedef struct {
+	// RW SRAM
+	uint16_t TorqueTurnOn;
+	int16_t cmdAcc;
+	int16_t cmdPosition;
+	int16_t cmdRunningTime;
+	int16_t cmdSpeed;
+	int16_t TorqueLimit;
+	int16_t UnlockEEPROM;
+} Servo_FLASH_CmdData_t;
+
+typedef struct {
+
+	// RW EPROM
+	uint16_t id;
+	uint16_t baudrate;
+	uint16_t ReturnDelay;
+//	uint16_t RespStatus;
+	uint16_t MinAngleLim;
+	uint16_t MaxAngleLim;
+	uint16_t MaxTempLim;
+	uint16_t MaxInVLim;
+	uint16_t MinInVLim;
+	uint16_t MaxTorqueLim;
+	uint16_t SettingByte;
+	uint16_t UnloadCond;
+	uint16_t AlarmLed;
+	uint16_t Kp;
+	uint16_t Kd;
+	uint16_t Ki;
+	uint16_t StartupForce;
+	uint16_t CW_dead;
+	uint16_t CCW_dead;
+	uint16_t ProtCurrent;
+	uint16_t AngularResolution;
+	uint16_t PosOffset;
+	uint16_t OpMode;
+	uint16_t ProtTorque;
+	uint16_t ProtTime;
+	uint16_t OverloadTorque;
+	uint16_t SpeedCoefP;
+	uint16_t OverCurrentTime;
+	uint16_t SpeedCoefI;
+} Servo_EEPROM_CfgData_t;
+
+typedef struct {
+	uint16_t	CFG_SW_1_NUM;		// датчик при вращении в - сторону
+	uint16_t	CFG_SW_2_NUM;		// датчик при вращении в - сторону
+	uint16_t	CFG_SW_3_NUM;		// датчик при вращении в + сторону
+	uint16_t	CFG_SW_4_NUM;		// датчик при вращении в + сторону
+	uint16_t	CFG_SW_1_ACT;
+	uint16_t	CFG_SW_2_ACT;
+	uint16_t	CFG_SW_3_ACT;
+	uint16_t	CFG_SW_4_ACT;
+	uint16_t	CFG_SLOWDOWN_DEACC;
+	uint16_t	CFG_SLOWDOWN_SPEED;
+} SwitchSens_Cfg_t;
+
+typedef struct {
+	uint16_t SwSensStates[4];
+} SwitchSens_Data_t;
+
+typedef union {
+	uint16_t DiscreteStates;
+	uint16_t
+		IsOnline	: 1,
+		IsMoving	: 1,
+		StateSw1	: 1,
+		StateSw2	: 1,
+		StateSw3	: 1,
+		StateSw4	: 1;
+
+} Servo_RO_Flags_t;
+
+typedef struct {
+	Servo_EEPROM_ROData_t eeprom_data;
+	Servo_FLASH_ActualData_t flash_data;
+	Servo_RO_Flags_t dins_data;
+	//SwitchSens_Data_t sw_sens_data;
+
+} RO_MemData_t;
+
+typedef struct {
+	Servo_EEPROM_CfgData_t eeprom_data;
+	Servo_FLASH_CmdData_t flash_data;
+	SwitchSens_Cfg_t sw_sens_cfg;
+} RW_MemData_t;
+
+
+
+
 typedef struct {
 
     // Accessors (updated by poll() )
@@ -100,15 +213,30 @@ typedef struct {
     //ServoActualData_t *pActualData;
     uint8_t *pActualData;
 
+    // RO Memory data
+    RO_MemData_t RO_MemData;
+
+    // RW Memory data
+    RW_MemData_t RW_MemData;
+
 
     uint8_t  isMoving;
 
     uint8_t   doesExist;      // Does this servo exist (i.e. respond to ping?)
     uint8_t   errorState;     // Current error state
-
-
-
     uint8_t dataUpdated;
+
+
+    uint32_t requestsStamps[Req_Cnt];
+    uint8_t currentRequest;
+    uint8_t readSRAM;		// Флаг, указывающий читать SRAM или EEPROM
+
+    uint8_t sw_neg_stop;
+    uint8_t sw_neg_slow;
+    uint8_t sw_pos_stop;
+    uint8_t sw_pos_slow;
+    uint32_t normal_speed;
+
 } ServoST3215;
 
 

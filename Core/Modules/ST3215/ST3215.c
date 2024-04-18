@@ -20,7 +20,7 @@ uint8_t parameters[PARAMETERS_DATA_LEN] = {0, 0, 0, 0, 0, 0, 0, 0};
 void servoST3215_init(ServoST3215 *this, uint8_t id, void *dHUART) {
   this->servoId = id;
   this->errorState = 0;       // Initialize to no error state
-  this->doesExist = 0;         // By default, doesn't exist until it's found by ping()
+  this->doesExist = 1;         // By default, doesn't exist until it's found by ping()
 
   // Load blank values in variables
 /*  this->load = 0;
@@ -31,8 +31,6 @@ void servoST3215_init(ServoST3215 *this, uint8_t id, void *dHUART) {
   this->mode = 0;
   this->temp = 0;*/
   this->isMoving = 0;
-
-  ServoSerialBusInit(dHUART);
 
   //ServoSerialBusStart();
 }
@@ -50,8 +48,10 @@ bool servoST3215_exists(ServoST3215 *this) {
 int servoST3215_ping(ServoST3215 *this) {
    // First, send the write (ping packets have no parameters)
   const uint8_t numBytesToWrite = 0;
-  uint8_t parameters[numBytesToWrite];
-  sendServoPacket(this->servoId, INST_PING, (uint8_t*)parameters, numBytesToWrite);
+  /*  uint8_t parameters[numBytesToWrite];
+  sendServoPacket(this->servoId, INST_PING, (uint8_t*)parameters, numBytesToWrite);*/
+
+	reqServoCmd(this->servoId, INST_PING, numBytesToWrite);
   this->doesExist = 0;
 
 

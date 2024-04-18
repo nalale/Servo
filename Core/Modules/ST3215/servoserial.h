@@ -47,6 +47,7 @@ bool ServoSerialIdGet(uint8_t *ServoID);
 
 int readServoMemory(uint8_t servoId, uint8_t startAddress, uint8_t length);
 int writeServoReg8(uint8_t servoId, uint8_t regAddress, uint8_t data);
+int reqServoCmd(uint8_t ServoId, uint8_t Instruction, uint8_t bytesToWrite);
 
 uint16_t parse16BitUInt(uint8_t highByte, uint8_t lowByte);
 void packU16toButter(uint16_t byteToPack, uint8_t* buffer);
@@ -55,6 +56,7 @@ int16_t parse16BitInt(uint8_t highByte, uint8_t lowByte);
 void sendServoPacket(uint8_t servoID, uint8_t instruction, uint8_t* parameters, uint8_t length);
 int readServoPacket(uint8_t* readBuffer, uint8_t length);
 uint8_t receivePacket(void);
+uint8_t receivePacketLen(void);
 
 void sendAtomPacket(uint8_t instruction, uint8_t* parameters, uint8_t length);
 
