@@ -10,6 +10,12 @@
 
 #include "servo_control.h"
 
+typedef struct {
+	uint16_t RegType;
+	uint16_t iRegIndex;
+	uint16_t InData;
+} QueueCmd_t;
+
 typedef enum {
 	MB_RegType_HoldReg = 0,
 	MB_RegType_InReg,
@@ -23,6 +29,7 @@ typedef enum {
 	Note_Type_GroupCtrl,		// запись управления группой
 	Note_Type_DeviceCtrl,		// управление устройством
 	Note_Type_DeviceState,
+	Note_Type_DeviceStateArray,
 }Note_Type_t;
 
 
@@ -41,6 +48,10 @@ typedef struct {
 
 void app_mb_data_init();
 void app_mb_cfg_data_store();
+
+uint8_t app_mb_holdregs_req_get(QueueCmd_t *out);
+
+uint8_t app_mb_inreg_set(uint16_t regNum, int16_t value);
 
 MBRegsTableNote_t *app_mb_note_find(uint16_t regNum);
 MBRegsTableNote_t *app_mb_inreg_note_find(uint16_t regNum);

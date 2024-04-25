@@ -172,8 +172,8 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
             	int16_t value = *(reg->pMBRegValue);*/
             	int16_t value = 0;
             	int8_t status = 0;
-            	if(eMBRegHoldingWriteCB != 0)
-            		status = eMBRegHoldingReadCB(MB_RegType_HoldReg, iRegIndex, (USHORT*)&value);
+            	if(eMBRegInputReadCB != 0)
+            		status = eMBRegInputReadCB(MB_RegType_HoldReg, iRegIndex, (USHORT*)&value);
 
             	if(status) {
             		eStatus = MB_ENOREG;
@@ -372,6 +372,7 @@ eMBErrorCode eMBRegDiscreteCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT us
 
     if ((usAddress >= DISCRETE_INPUT_START) && (usAddress + usNDiscrete    <= DISCRETE_INPUT_START + DISCRETE_INPUT_NDISCRETES))
     {
+    	uint8_t status = 0;
         iRegIndex = (USHORT) (usAddress - usDiscreteInputStart) / 8;
         iRegBitIndex = (USHORT) (usAddress - usDiscreteInputStart) % 8;
 
@@ -379,8 +380,13 @@ eMBErrorCode eMBRegDiscreteCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT us
         	return MB_ENOREG;
         }
 
+        if(eMBRegInputReadCB != 0)
+			status = eMBRegInputReadCB(MB_RegType_DIn, iRegIndex, (USHORT*)pucDiscreteInputBuf);
 
-        ReadInputParameters(MB_RegType_DIn, iRegIndex, pucDiscreteInputBuf);
+		if(status) {
+			return MB_ENOREG;
+		}
+        //ReadInputParameters(MB_RegType_DIn, iRegIndex, pucDiscreteInputBuf);
 
         while (iNReg > 0)
         {

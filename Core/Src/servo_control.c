@@ -8,14 +8,11 @@
 #include <stdint.h>
 
 #include "tools.h"
-#include "RingBuffer/ring_buffer.h"
 
 #include "servo_control.h"
 #include "sw_sensors.h"
 #include "mb_app_data.h"
 #include "74HC165.h"
-
-#define SERIAL_FRAME_LEN	22
 
 extern uint16_t usSRegInBuf[];
 extern int16_t usSRegHoldBuf[];
@@ -28,9 +25,6 @@ ServoST3215 servoItem[32];
 
 typedef enum { STATE_SCAN = 0, STATE_POLL, } ServoCtrlStep_t;
 typedef enum { SCAN_WAIT = 0, SCAN_SUCCESS, SCAN_TIMEOUT } ServoCtrlScanResult_t;
-
-static QueueCmd_t BufArray[10];		// Массив для очереди запросов
-static RINGBUFF_T InMsgBuf;			// Очередь запросов MB
 
 
 static uint32_t requestsPeriods[Req_Cnt] = { 1000, 50, 0 };
@@ -45,78 +39,9 @@ static ServoCtrlScanResult_t ServoCtrl_Scan(ServoST3215 *this, uint8_t Id);
 static ServoCtrlScanResult_t ServoCtrl_Poll(ServoST3215 *this);
 static void ServoCtrl_Req(ServoST3215 *this, MB_RegType_t RegType, uint16_t iRegIndex, uint16_t InData);
 
-// Сигнал об измении MB Hold Register
-void ChangeParametersRequest(uint16_t RegType, uint16_t iRegIndex, uint16_t InData) {
-	QueueCmd_t newCmd = {RegType, iRegIndex, InData};
-	// поместить параметры в кольцевой буффер команд сервопривода
-	RingBuffer_Insert(&InMsgBuf, &newCmd);
-}
 
-int8_t ReadCfgParameters(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data) {
-	// находим номер привода
-	uint8_t num = (iRegIndex >> 6) - 1;
-	// находим номер параметра
-	iRegIndex &= 0x3F;
-	//iRegIndex += MB_IDX_SERVO_DATA_START;
-
-	uint16_t *array = (uint16_t*)&servoItem[num].RW_MemData;
-
-	*Data = array[iRegIndex];
-	return 0;
-}
-
-int8_t ReadInputParameters(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data) {
-
-	// находим номер привода
-	int8_t num = (iRegIndex >> 6) - 1;
-	// находим номер параметра
-	iRegIndex &= 0x3F;
-	//iRegIndex += MB_IDX_SERVO_DATA_START;
-
-	if(num < 0) {
-		if(RegType == MB_RegType_InReg)
-			*Data = usSRegInBuf[iRegIndex];
-		else if(RegType == MB_RegType_DIn)
-			*Data = ucSDiscInBuf[iRegIndex];
-	}
-	else {
-		if(RegType == MB_RegType_InReg) {
-			uint16_t *array = (uint16_t*)&servoItem[num].RO_MemData;
-
-			*Data = array[iRegIndex];
-		} else if(RegType == MB_RegType_DIn) {
-			uint16_t *array = (uint16_t*)&servoItem[num].RO_MemData.dins_data;
-
-			*Data = array[iRegIndex];
-		}
-	}
-	return 0;
-}
-
-uint8_t ReadDescreteInput(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data) {
-	// находим номер привода
-	int8_t num = (iRegIndex >> 6) - 1;
-	// находим номер параметра
-	iRegIndex &= 0x3F;
-	//iRegIndex += MB_IDX_SERVO_DATA_START;
-
-	if(num < 0)
-		*Data = ucSDiscInBuf[iRegIndex];
-	else {
-		uint16_t *array = (uint16_t*)&servoItem[num].RO_MemData.dins_data;
-		*Data = array[iRegIndex];
-	}
-
-	return 0;
-}
 
 void ServoCtrl_Init(void *phuart) {
-	eMBRegHoldingWriteCB = ChangeParametersRequest;
-	eMBRegHoldingReadCB = ReadCfgParameters;
-	eMBRegInputReadCB = ReadInputParameters;
-
-	RingBuffer_Init(&InMsgBuf, BufArray, sizeof(BufArray[0]), 10);
-
 	ServoSerialBusInit(phuart);
 
 	ServoCtrlStep = STATE_SCAN;
@@ -135,6 +60,8 @@ void ServoCtrl_Process() {
 
 		if(result == SCAN_SUCCESS) {
 			servoST3215_init(&servoItem[servo_num], servo_id, NULL);
+			app_mb_inreg_set(MB_INREG_DEV_SLOT_1_SERVO_ID + servo_num, servo_id);
+
 			servo_num++;
 			servo_id++;
 		} else if(result == SCAN_TIMEOUT) {
@@ -142,7 +69,8 @@ void ServoCtrl_Process() {
 		}
 
 		// если прошли все ID у всех 32х приводов
-		if(servo_id > 255 || servo_num > 31) {
+		if(servo_id > 253 || servo_num > 31) {
+			app_mb_inreg_set(MB_INREG_DEV_SERVO_NUM, servo_num);
 			ServoDriveNumber = servo_num;
 			servo_num = 0;
 			ServoCtrlStep = STATE_POLL;
@@ -152,11 +80,10 @@ void ServoCtrl_Process() {
 	case STATE_POLL: {
 		QueueCmd_t newCmd;
 
-
 		result = ServoCtrl_Poll(&servoItem[servo_num]);
 
 		if(result != SCAN_WAIT) {
-			if(RingBuffer_Pop(&InMsgBuf, &newCmd)) {
+			if(app_mb_holdregs_req_get(&newCmd) == SUCCESS) {
 				// номера регистров для серво занимают 64 (1 << 6) позиции.
 				// т.е смещением на 6, находим какому из приводов команда
 				// после этого оставляем только младшие 63 бита указывающиие, какой именно регистр
@@ -294,7 +221,7 @@ static ServoCtrlScanResult_t ServoCtrl_Poll(ServoST3215 *this) {
 				else if(this->currentRequest == Req_Poll) {
 					// при инициализация считываем EEPROM, далее обновляем данные SRAM
 					if(!this->readSRAM) {
-						readServoMemory(this->servoId, SMS_STS_WB_MAJ_VER, EEPROM_MEM_SIZE); //SMS_STS_WB_MAJ_VER, SERIAL_FRAME_LEN); //
+						readServoMemory(this->servoId, SMS_STS_WB_MAJ_VER, EEPROM_MEM_SIZE);
 					} else {
 						readServoMemory(this->servoId, SMS_STS_PRESENT_POSITION_L, POLL_BUFFER_SIZE);
 					}

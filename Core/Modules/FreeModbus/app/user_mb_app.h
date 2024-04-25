@@ -17,6 +17,8 @@ typedef enum {
 	MB_INREG_DEV_HW_VER_MAJ,
 	MB_INREG_DEV_HW_VER_MIN,
 	MB_INREG_DEV_SERVO_NUM,
+	MB_INREG_DEV_SLOT_1_SERVO_ID,
+	MB_INREG_DEV_SLOT_32_SERVO_ID = MB_INREG_DEV_SLOT_1_SERVO_ID + 31,
 
 	MB_INDEG_DEV_DATA_LEN,		// определяет количество регистров для устройства, а не привода
 
@@ -150,10 +152,10 @@ typedef enum {
 #define S_COIL_NCOILS                 66 // MB_COILS_DATA_LEN//64
 
 #define S_REG_INPUT_START             0
-#define S_REG_INPUT_NREGS             75
+#define S_REG_INPUT_NREGS             (MB_IDX_SERVO_DATA_START + (MB_IDX_SERVO_DATA_START * 32))//75
 
 #define S_REG_HOLDING_START           0
-#define S_REG_HOLDING_NREGS           108 //MB_SERVO_DATA_LEN //100
+#define S_REG_HOLDING_NREGS           (MB_IDX_SERVO_DATA_START + (MB_IDX_SERVO_DATA_START * 32))//108 //MB_SERVO_DATA_LEN //100
 
 /* salve mode: holding register's all address */
 #define          S_HD_RESERVE                     0
@@ -167,8 +169,6 @@ typedef enum {
 #define          S_DI_RESERVE                     0
 
 extern void (*eMBRegHoldingWriteCB)(USHORT RegType, USHORT iRegIndex, USHORT usNRegs);
-extern int8_t (*eMBRegHoldingReadCB)(USHORT RegType, USHORT iRegIndex, USHORT *uspData);
-
 extern int8_t (*eMBRegInputReadCB)(USHORT RegType, USHORT iRegIndex, USHORT *uspData);
 
 #endif // _USER_MB_APP_

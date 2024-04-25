@@ -7,29 +7,64 @@
 
 #include "mb_app_data.h"
 #include "app_cfg_data.h"
+#include "RingBuffer/ring_buffer.h"
 
 
 #define SERVO_MEM_NOT_MAP	{ NULL, SMS_STS_NOT_MAP, 0 }
 
 int16_t usSRegInBuf[MB_INDEG_DEV_DATA_LEN];
 int16_t usSRegHoldBuf[MB_IDX_RW_UNIT_DATA_LEN];
-
-
-
-uint8_t    ucSCoilBuf[S_COIL_NCOILS]; //UCHAR    ucSCoilBuf[S_COIL_NCOILS/8+1]
-uint8_t		ucSDiscInBuf[MB_DIN_DEV_DATA_LEN];
+uint8_t	ucSCoilBuf[S_COIL_NCOILS]; //UCHAR    ucSCoilBuf[S_COIL_NCOILS/8+1]
+uint8_t	ucSDiscInBuf[MB_DIN_DEV_DATA_LEN];
 
 extern ServoST3215 servoItem[32];
+static QueueCmd_t BufArray[10];		// Массив для очереди запросов
+static RINGBUFF_T InMsgBuf;			// Очередь запросов MB
+
+static int8_t mb_read_data(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data);
+static void ChangeParametersRequest(uint16_t RegType, uint16_t iRegIndex, uint16_t InData);
+
 
 // отображение запросов MB в ServoSerial
 MBRegsTableNote_t MBInRegsTable[] =
 {
-	{ Note_Type_MBReg, MB_INREG_DEV_FW_VER_MAJ, 0, SERVO_MEM_NOT_MAP },
-	{ Note_Type_MBReg, MB_INREG_DEV_FW_VER_MIN, 0, SERVO_MEM_NOT_MAP },
-	{ Note_Type_MBReg, MB_INREG_DEV_HW_VER_MAJ, 0, SERVO_MEM_NOT_MAP },
-	{ Note_Type_MBReg, MB_INREG_DEV_HW_VER_MIN, 0, SERVO_MEM_NOT_MAP },
-	{ Note_Type_MBReg, MB_INREG_DEV_SERVO_NUM, 0, SERVO_MEM_NOT_MAP },
-
+	{ Note_Type_DeviceState, MB_INREG_DEV_FW_VER_MAJ, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_FW_VER_MIN, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_HW_VER_MAJ, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_HW_VER_MIN, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SERVO_NUM, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 1, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 2, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 3, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 4, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 5, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 6, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 7, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 8, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 9, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 10, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 11, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 12, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 13, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 14, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 15, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 16, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 17, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 18, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 19, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 20, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 21, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 22, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 23, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 24, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 25, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 26, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 27, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 28, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 29, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_1_SERVO_ID + 30, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_DeviceState, MB_INREG_DEV_SLOT_32_SERVO_ID, 0, SERVO_MEM_NOT_MAP },
 
 	{ Note_Type_MBReg, MB_IDX_FW_MAIN_VER, 0, SERVO_MEM_NOT_MAP },
 	{ Note_Type_MBReg, MB_IDX_FW_SUB_VER, 0, SERVO_MEM_NOT_MAP },
@@ -136,9 +171,11 @@ MBRegsTableNote_t MBDInTable[] =
 
 
 void app_mb_data_init() {
-
-	uint8_t cfg_array[13];
-	app_cfg_load(cfg_array, 13);
+	// Load App Info
+	usSRegInBuf[MB_INREG_DEV_FW_VER_MAJ] = FW_VER_MAJ;
+	usSRegInBuf[MB_INREG_DEV_FW_VER_MIN] = FW_VER_MIN;
+	usSRegInBuf[MB_INREG_DEV_HW_VER_MAJ] = HW_VER_MAJ;
+	usSRegInBuf[MB_INREG_DEV_HW_VER_MIN] = HW_VER_MIN;
 
 	// инициализация массива указателей на данные
 	for(uint8_t cnt = 0; cnt < MB_HOLDREGS_CNT; cnt++) {
@@ -157,7 +194,6 @@ void app_mb_data_init() {
 			int16_t *pData = (int16_t*)&servoItem[0].RO_MemData;
 			MBInRegsTable[cnt].pMBRegValue = &(pData[cnt - MB_INDEG_DEV_DATA_LEN]);
 		}
-
 	}
 
 	for(uint8_t cnt = 0; cnt < MB_COILS_CNT; cnt++)
@@ -176,10 +212,20 @@ void app_mb_data_init() {
 	for(uint8_t cnt = 0, cfg_offset = 0; cnt < MB_HOLDREGS_CNT; cnt++) {
 
 		if(MBServoSerialTable[cnt].NoteType == Note_Type_Cfg) {
-			*MBServoSerialTable[cnt].pMBRegValue = cfg_array[cfg_offset];
+			/*if(cnt < MB_IDX_DEV_CFG_DATA_LEN)
+				MBServoSerialTable[cnt].pMBRegValue = (int16_t*)&cfg_array[cfg_offset];
+			else {
+
+			}
+			 */
 			cfg_offset++;
 		}
 	}
+
+	RingBuffer_Init(&InMsgBuf, BufArray, sizeof(BufArray[0]), 10);
+
+	eMBRegHoldingWriteCB = ChangeParametersRequest;
+	eMBRegInputReadCB = mb_read_data;
 }
 
 void app_mb_cfg_data_store() {
@@ -196,6 +242,59 @@ void app_mb_cfg_data_store() {
 	app_cfg_save(cfg_array, 13 + 2);
 }
 
+uint8_t app_mb_holdregs_req_get(QueueCmd_t *out) {
+	if(RingBuffer_Pop(&InMsgBuf, out) > 0) {
+		return SUCCESS;
+	}
+
+	out = NULL;
+	return ERROR;
+}
+
+// Сигнал об измении MB Hold Register
+static void ChangeParametersRequest(uint16_t RegType, uint16_t iRegIndex, uint16_t InData) {
+	QueueCmd_t newCmd = {RegType, iRegIndex, InData};
+	// поместить параметры в кольцевой буффер команд сервопривода
+	RingBuffer_Insert(&InMsgBuf, &newCmd);
+}
+
+
+static int8_t mb_read_data(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data) {
+
+	// находим номер привода
+	int8_t num = (iRegIndex >> 6) - 1;
+	// находим номер параметра
+	iRegIndex &= 0x3F;
+	uint16_t *array = NULL;
+
+	if(num < 0) {
+		if(RegType == MB_RegType_HoldReg)
+			array = (uint16_t*)&usSRegHoldBuf[iRegIndex];
+		else if(RegType == MB_RegType_InReg)
+			array = (uint16_t*)&usSRegInBuf[iRegIndex];
+		else if(RegType == MB_RegType_DIn)
+			array = (uint16_t*)&ucSDiscInBuf[iRegIndex];
+		else
+			return 1;
+	}
+	else {
+		if(RegType == MB_RegType_HoldReg)
+			array = (uint16_t*)&servoItem[num].RW_MemData;
+		else if(RegType == MB_RegType_InReg)
+			array = (uint16_t*)&servoItem[num].RO_MemData;
+		else if(RegType == MB_RegType_DIn) {
+			array = (uint16_t*)&servoItem[num].RO_MemData.dins_data;
+
+		}
+		else
+			return 1;
+	}
+
+	*Data = array[iRegIndex];
+	return 0;
+}
+
+//--- HoldRegs Funcs ---------------------/
 MBRegsTableNote_t *app_mb_note_find(uint16_t regNum) {
 	MBRegsTableNote_t *res = NULL;
 	for(uint8_t cnt = 0; cnt < MB_HOLDREGS_CNT; cnt++) {
@@ -217,6 +316,7 @@ uint8_t app_mb_holdreg_exists(uint16_t regNum) {
 	return 1;
 }
 
+//--- InRegs Funcs ---------------------/
 MBRegsTableNote_t *app_mb_inreg_note_find(uint16_t regNum) {
 	MBRegsTableNote_t *res = NULL;
 
@@ -239,6 +339,19 @@ uint8_t app_mb_inreg_exists(uint16_t regNum) {
 	return 1;
 }
 
+uint8_t app_mb_inreg_set(uint16_t regNum, int16_t value) {
+
+	if(app_mb_inreg_exists(regNum)) {
+		usSRegInBuf[regNum] = value;
+		return SUCCESS;
+	}
+	else
+		return ERROR;
+
+
+}
+
+//--- CoilRegs Funcs ---------------------/
 MBRegsTableNote_t *app_mb_coil_note_find(uint16_t regNum) {
 	MBRegsTableNote_t *res = NULL;
 	for(uint8_t cnt = 0; cnt < MB_COILS_CNT; cnt++) {
@@ -260,7 +373,7 @@ uint8_t app_mb_coil_exists(uint16_t regNum) {
 	return 1;
 }
 
-
+//--- DescreteInRegs Funcs ---------------------/
 MBRegsTableNote_t *app_mb_din_note_find(uint16_t regNum) {
 	MBRegsTableNote_t *res = NULL;
 

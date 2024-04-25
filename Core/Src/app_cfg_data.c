@@ -158,11 +158,58 @@ uint8_t app_cfg_save(uint8_t* cfg_buf, uint16_t len) {//app_cfg_t *app_cfg) {
 	*(uint16_t*)cfg_buf = crc;
 
 	Flash_Write_HalfWordData(APP_CFG_FLASH_ADDRESS, (uint16_t*)cfg_buf, cfgHWordNum);
-	//Flash_Write_Data(APP_CFG_FLASH_ADDRESS, (uint32_t*)cfg_buf, cfgWordNum);
+
 	return 1;
 }
 
-uint8_t app_cfg_load(uint8_t* cfg_buf, uint16_t len) { //app_cfg_t *app_cfg) {
+ErrorStatus app_settings_load(app_device_settings_t *data) {
+
+	Flash_Read_HalfWordData(APP_CFG_FLASH_ADDRESS, (uint16_t*)data, (sizeof(app_device_settings_t) >> 1));
+
+	// размер cfg без учета CRC
+	uint16_t crc = Crc16((uint8_t*)&data->MB_ADDRESS, sizeof(app_device_settings_t) - sizeof(data->CRC_16));
+
+	if(crc == data->CRC_16)
+		return SUCCESS;
+	else
+		return !SUCCESS;
+}
+
+ErrorStatus servo_cfg_load(app_servo_cfg_t *data, uint8_t servo_id) {
+
+	uint16_t servosCnt = 0, memId = UINT16_MAX;
+	uint32_t mem_offset = 0;
+
+	// чтение памяти для поиска нужного id
+	while(servosCnt < 32) {
+		Flash_Read_HalfWordData(SERVO_CFG_FLASH_ADDRESS + mem_offset, (uint16_t*)&memId, 1);
+
+		// Crc8 в первом байтие, Id во втором байте
+		memId >>= 8;
+
+		if((uint8_t)((memId) & 0xff) == servo_id)
+			break;
+		else {
+			servosCnt++;
+			mem_offset += sizeof(app_servo_cfg_t);
+		}
+	}
+
+	// Если ID не найден вернуть ошибку
+	if(servosCnt > 32 || memId == UINT16_MAX)
+		return !SUCCESS;
+
+	// чтение памяти настроек
+	Flash_Read_HalfWordData(APP_CFG_FLASH_ADDRESS + mem_offset, (uint16_t*)data, (sizeof(app_servo_cfg_t) >> 1));
+	uint8_t crc = Crc16(&data->servo_id, sizeof(app_servo_cfg_t) - sizeof(data->crc_8));
+
+	if(crc == data->crc_8)
+		return SUCCESS;
+	else
+		return !SUCCESS;
+}
+
+uint8_t app_cfg_load(uint8_t* cfg_buf, uint16_t len) {
 	app_cfg_t cfg;
 	cfg.data = cfg_buf;
 	uint16_t cfgHalfWordNum = (len >> 1) + 1;

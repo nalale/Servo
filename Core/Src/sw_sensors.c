@@ -77,7 +77,7 @@ void sw_sens_handle(ServoST3215 *servo) {
 			if((servo->sw_neg_slow || servo->sw_pos_slow) &&
 				((swState == SwitchSens_Empty || swState == SwitchSens_Off)&& swPrevState == 1) &&
 				servo->normal_speed > 0)
-				ChangeParametersRequest(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, servo->normal_speed);
+				eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, servo->normal_speed);
 
 			servo->sw_neg_stop = (sens < 2)? 0 : servo->sw_neg_stop;
 			servo->sw_pos_stop = (sens >= 2)? 0 : servo->sw_pos_stop;
@@ -91,11 +91,9 @@ void sw_sens_handle(ServoST3215 *servo) {
 
 void ServoSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t swPrevState) {
 	// какое действие нужно выполнить
-	//MBRegsTableNote_t *note = app_mb_note_find(MB_IDX_CFG_SW_1_ACT + sens);
-	SwitchAction_t act = *((uint16_t*)&servo->RW_MemData.sw_sens_cfg.CFG_SW_1_ACT + sens);//*note->pMBRegValue;
+	SwitchAction_t act = *((uint16_t*)&servo->RW_MemData.sw_sens_cfg.CFG_SW_1_ACT + sens);
 
-	//note = app_mb_inreg_note_find(MB_IDX_ACTUAL_POS);
-	int16_t act_pos = servo->RO_MemData.flash_data.actual_pos;//*note->pMBRegValue;
+	int16_t act_pos = servo->RO_MemData.flash_data.actual_pos;
 
 	switch(act) {
 	case SwitchAction_Stop:
@@ -105,7 +103,7 @@ void ServoSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t 
 
 		if(swState == 1 && swPrevState == 0) {
 			// остановить
-			ChangeParametersRequest(MB_RegType_HoldReg, MB_IDX_RW_TARGET_POS, act_pos);
+			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_TARGET_POS, act_pos);
 		}
 		break;
 	case SwitchAction_Slowdown:
@@ -114,17 +112,15 @@ void ServoSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t 
 
 		if(swState == 1 && swPrevState == 0) {
 			// запомнить скорость по умолчанию
-			//note = app_mb_note_find(MB_IDX_RW_RUNNING_SPEED);
-			servo->normal_speed = servo->RW_MemData.flash_data.cmdSpeed;//*note->pMBRegValue;
+			servo->normal_speed = servo->RW_MemData.flash_data.cmdSpeed;
 
 			// добавить в очередь команду задания ускорения
-			//note = app_mb_note_find(MB_IDX_CFG_SLOWDOWN_DEACC);
 			int16_t acc = servo->RW_MemData.sw_sens_cfg.CFG_SLOWDOWN_DEACC;
-			ChangeParametersRequest(MB_RegType_HoldReg, MB_IDX_RW_ACC, acc);
+			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_ACC, acc);
+
 			// добавить в очередь команду задани скорости
-			//note = app_mb_note_find(MB_IDX_CFG_SLOWDOWN_SPEED);
 			int16_t speed = servo->RW_MemData.sw_sens_cfg.CFG_SLOWDOWN_SPEED;
-			ChangeParametersRequest(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, speed);
+			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, speed);
 		}
 
 		break;
@@ -141,11 +137,9 @@ void ServoSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t 
 
 void MotorSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t swPrevState) {
 	// какое действие нужно выполнить
-	//MBRegsTableNote_t *note = app_mb_note_find(MB_IDX_CFG_SW_1_ACT + sens);
-	SwitchAction_t act = *((uint16_t*)&servo->RW_MemData.sw_sens_cfg.CFG_SW_1_ACT + sens);//*note->pMBRegValue;
+	SwitchAction_t act = *((uint16_t*)&servo->RW_MemData.sw_sens_cfg.CFG_SW_1_ACT + sens);
 
-	//note = app_mb_inreg_note_find(MB_IDX_ACTUAL_POS);
-	int16_t act_pos = servo->RO_MemData.flash_data.actual_pos;//*note->pMBRegValue;
+	int16_t act_pos = servo->RO_MemData.flash_data.actual_pos;
 
 	switch(act) {
 	case SwitchAction_Stop:
@@ -159,15 +153,14 @@ void MotorSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t 
 			// останавливаем привод, записывая текущее положение с обратным знаком.
 			// т.к записанную последнюю команду положения привод принимает за 0 отсчета.
 			// т.е остановиться в данный момент, можно записав текущее положение с минусом от 0.
-			//note = app_mb_note_find(MB_IDX_RW_RUNNING_SPEED);
-			int16_t speed = servo->RW_MemData.flash_data.cmdSpeed;//*note->pMBRegValue;
+			int16_t speed = servo->RW_MemData.flash_data.cmdSpeed;
 			if(act_pos < 0)
 				speed = -speed;
 
 			int16_t delta_step = 0.2f * speed;
 			act_pos -= delta_step;
 
-			ChangeParametersRequest(MB_RegType_HoldReg, MB_IDX_RW_TARGET_POS, -act_pos);
+			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_TARGET_POS, -act_pos);
 		}
 		break;
 	case SwitchAction_Slowdown:
@@ -176,17 +169,14 @@ void MotorSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t 
 
 		if(swState == 1 && swPrevState == 0) {
 			// запомнить скорость по умолчанию
-			//note = app_mb_note_find(MB_IDX_RW_RUNNING_SPEED);
-			servo->normal_speed = servo->RW_MemData.flash_data.cmdSpeed;//*note->pMBRegValue;
+			servo->normal_speed = servo->RW_MemData.flash_data.cmdSpeed;
 
 			// добавить в очередь команду задания ускорения
-			//note = app_mb_note_find(MB_IDX_CFG_SLOWDOWN_DEACC);
 			int16_t acc = servo->RW_MemData.sw_sens_cfg.CFG_SLOWDOWN_DEACC;
-			ChangeParametersRequest(MB_RegType_HoldReg, MB_IDX_RW_ACC, acc);
+			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_ACC, acc);
 			// добавить в очередь команду задани скорости
-			//note = app_mb_note_find(MB_IDX_CFG_SLOWDOWN_SPEED);
 			int16_t speed = servo->RW_MemData.sw_sens_cfg.CFG_SLOWDOWN_SPEED;
-			ChangeParametersRequest(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, speed);
+			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, speed);
 		}
 
 		break;
@@ -209,7 +199,6 @@ uint8_t sw_sens_check_condition(ServoST3215 *servo, uint16_t InData) {
 		//	ChangeParametersRequest(MB_RegType_HoldReg, MB_IDX_RW_TORQUE_LIM, 1000);
 	}
 
-
 	// Если активен правый концевик и направлени положительное
 	if(servo->sw_pos_stop) {
 		if((int16_t)InData > 0)
@@ -219,11 +208,11 @@ uint8_t sw_sens_check_condition(ServoST3215 *servo, uint16_t InData) {
 	}
 
 	if(servo->sw_neg_slow && ((int16_t)InData > 0)) {
-		ChangeParametersRequest(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, servo->normal_speed);
+		eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, servo->normal_speed);
 	}
 
 	if(servo->sw_pos_slow && ((int16_t)InData < 0)) {
-		ChangeParametersRequest(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, servo->normal_speed);
+		eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, servo->normal_speed);
 	}
 
 	return SUCCESS;
