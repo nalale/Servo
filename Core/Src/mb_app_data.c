@@ -20,9 +20,10 @@ uint8_t	ucSDiscInBuf[MB_DIN_DEV_DATA_LEN];
 extern ServoST3215 servoItem[32];
 static QueueCmd_t BufArray[10];		// Массив для очереди запросов
 static RINGBUFF_T InMsgBuf;			// Очередь запросов MB
+static 	uint32_t mbProc_ts = 0;
 
-static int8_t mb_read_data(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data);
-static void ChangeParametersRequest(uint16_t RegType, uint16_t iRegIndex, uint16_t InData);
+int8_t mb_read_data(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data);
+void mb_write_data_req(uint16_t RegType, uint16_t iRegIndex, uint16_t InData);
 
 
 // отображение запросов MB в ServoSerial
@@ -80,20 +81,20 @@ MBRegsTableNote_t MBInRegsTable[] =
 };
 
 // отображение запросов MB в ServoSerial
-MBRegsTableNote_t MBServoSerialTable[] =
+MBRegsTableNote_t MBHoldRegsTable[] =//MBServoSerialTable[] =
 {
 	{ Note_Type_Cfg, MB_IDX_CFG_ADDRESS, 0, SERVO_MEM_NOT_MAP },
 	{ Note_Type_Cfg, MB_IDX_CFG_MD_BD,  0, SERVO_MEM_NOT_MAP },
 	{ Note_Type_Cfg, MB_IDX_CFG_SERVO_BD, 0, SERVO_MEM_NOT_MAP },
 
 	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_1_ID, 0, SERVO_MEM_NOT_MAP },
-	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_1_POS, 0, SERVO_MEM_NOT_MAP },
-	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_1_SPEED, 0, SERVO_MEM_NOT_MAP },
 	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_2_ID, 0, SERVO_MEM_NOT_MAP },
-	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_2_POS, 0, SERVO_MEM_NOT_MAP },
-	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_2_SPEED, 0, SERVO_MEM_NOT_MAP },
 	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_3_ID, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_1_POS, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_2_POS, 0, SERVO_MEM_NOT_MAP },
 	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_3_POS, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_1_SPEED, 0, SERVO_MEM_NOT_MAP },
+	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_2_SPEED, 0, SERVO_MEM_NOT_MAP },
 	{ Note_Type_GroupCtrl, MB_IDX_RW_GROUP_3_SPEED, 0, SERVO_MEM_NOT_MAP },
 
 	// Начало регистров отображаемых на память Servo
@@ -178,17 +179,19 @@ void app_mb_data_init() {
 	usSRegInBuf[MB_INREG_DEV_HW_VER_MIN] = HW_VER_MIN;
 
 	// инициализация массива указателей на данные
+	// HoldRegs
 	for(uint8_t cnt = 0; cnt < MB_HOLDREGS_CNT; cnt++) {
-		if(cnt < MB_IDX_RW_UNIT_DATA_LEN)
-			MBServoSerialTable[cnt].pMBRegValue = &usSRegHoldBuf[cnt];
+		if(MBHoldRegsTable[cnt].MBRegNum < MB_IDX_RW_UNIT_DATA_LEN)
+			MBHoldRegsTable[cnt].pMBRegValue = &usSRegHoldBuf[cnt];
 		else {
 			int16_t *pData = (int16_t*)&servoItem[0].RW_MemData;
-			MBServoSerialTable[cnt].pMBRegValue = &(pData[cnt - MB_IDX_RW_UNIT_DATA_LEN]);
+			MBHoldRegsTable[cnt].pMBRegValue = &(pData[cnt - MB_IDX_RW_UNIT_DATA_LEN]);
 		}
 	}
 
+	// InRegs
 	for(uint8_t cnt = 0; cnt < MB_INREGS_CNT; cnt++) {
-		if(cnt < MB_INDEG_DEV_DATA_LEN)
+		if(MBInRegsTable[cnt].MBRegNum < MB_INDEG_DEV_DATA_LEN)
 			MBInRegsTable[cnt].pMBRegValue = &usSRegInBuf[cnt];
 		else {
 			int16_t *pData = (int16_t*)&servoItem[0].RO_MemData;
@@ -196,11 +199,12 @@ void app_mb_data_init() {
 		}
 	}
 
+	// Coils
 	for(uint8_t cnt = 0; cnt < MB_COILS_CNT; cnt++)
 		MBCoilsTable[cnt].pMBRegValue = (int16_t*)&ucSCoilBuf[cnt];
 
 	for(uint8_t cnt = 0; cnt < MB_DIN_CNT; cnt++) {
-		if(cnt < MB_DIN_DEV_DATA_LEN)
+		if(MBDInTable[cnt].MBRegNum < MB_DIN_DEV_DATA_LEN)
 			MBDInTable[cnt].pMBRegValue = (int16_t*)&ucSDiscInBuf[cnt];
 		else {
 			int16_t *pData = (int16_t*)&servoItem[0].RO_MemData.dins_data;
@@ -211,7 +215,7 @@ void app_mb_data_init() {
 	// Инициализация данных конфига устройства
 	for(uint8_t cnt = 0, cfg_offset = 0; cnt < MB_HOLDREGS_CNT; cnt++) {
 
-		if(MBServoSerialTable[cnt].NoteType == Note_Type_Cfg) {
+		if(MBHoldRegsTable[cnt].NoteType == Note_Type_Cfg) {
 			/*if(cnt < MB_IDX_DEV_CFG_DATA_LEN)
 				MBServoSerialTable[cnt].pMBRegValue = (int16_t*)&cfg_array[cfg_offset];
 			else {
@@ -224,22 +228,23 @@ void app_mb_data_init() {
 
 	RingBuffer_Init(&InMsgBuf, BufArray, sizeof(BufArray[0]), 10);
 
-	eMBRegHoldingWriteCB = ChangeParametersRequest;
+	eMBRegHoldingWriteCB = mb_write_data_req;
 	eMBRegInputReadCB = mb_read_data;
 }
 
-void app_mb_cfg_data_store() {
-	// добавить впереди 2 пустые запись для CRC
-	uint8_t cfg_array[13 + 2];
+void app_mb_cmd_proc(void) {
+	if(msTimer_DiffFrom(mbProc_ts) > 50) {
 
-	for(uint8_t cnt = 0, cfg_offset = 2; cnt < MB_HOLDREGS_CNT; cnt++) {
-		if(MBServoSerialTable[cnt].NoteType == Note_Type_Cfg) {
-			cfg_array[cfg_offset] = *MBServoSerialTable[cnt].pMBRegValue;
-			cfg_offset++;
-		}
-	}
+		  uint16_t _storeCfgReq = 0;
+		  if(mb_read_data(MB_RegType_Coil, MB_IDX_COIL_FLASH_WRITE, &_storeCfgReq)) {
+			  app_cfg_data_store();
+			  ucSCoilBuf[MB_IDX_COIL_FLASH_WRITE] = 0;
+		  }
 
-	app_cfg_save(cfg_array, 13 + 2);
+		  mbProc_ts = HAL_GetTick();
+	  }
+
+
 }
 
 uint8_t app_mb_holdregs_req_get(QueueCmd_t *out) {
@@ -252,14 +257,14 @@ uint8_t app_mb_holdregs_req_get(QueueCmd_t *out) {
 }
 
 // Сигнал об измении MB Hold Register
-static void ChangeParametersRequest(uint16_t RegType, uint16_t iRegIndex, uint16_t InData) {
+void mb_write_data_req(uint16_t RegType, uint16_t iRegIndex, uint16_t InData) {
 	QueueCmd_t newCmd = {RegType, iRegIndex, InData};
 	// поместить параметры в кольцевой буффер команд сервопривода
 	RingBuffer_Insert(&InMsgBuf, &newCmd);
 }
 
 
-static int8_t mb_read_data(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data) {
+int8_t mb_read_data(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data) {
 
 	// находим номер привода
 	int8_t num = (iRegIndex >> 6) - 1;
@@ -269,11 +274,13 @@ static int8_t mb_read_data(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data)
 
 	if(num < 0) {
 		if(RegType == MB_RegType_HoldReg)
-			array = (uint16_t*)&usSRegHoldBuf[iRegIndex];
+			array = (uint16_t*)&usSRegHoldBuf[0];
 		else if(RegType == MB_RegType_InReg)
-			array = (uint16_t*)&usSRegInBuf[iRegIndex];
+			array = (uint16_t*)&usSRegInBuf[0];
 		else if(RegType == MB_RegType_DIn)
-			array = (uint16_t*)&ucSDiscInBuf[iRegIndex];
+			array = (uint16_t*)&ucSDiscInBuf[0];
+		else if(RegType == MB_RegType_Coil)
+			array = (uint16_t*)&ucSCoilBuf[0];
 		else
 			return 1;
 	}
@@ -295,25 +302,43 @@ static int8_t mb_read_data(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data)
 }
 
 //--- HoldRegs Funcs ---------------------/
-MBRegsTableNote_t *app_mb_note_find(uint16_t regNum) {
+MBRegsTableNote_t *app_mb_holdreg_find(uint16_t iRegIndex) {
 	MBRegsTableNote_t *res = NULL;
-	for(uint8_t cnt = 0; cnt < MB_HOLDREGS_CNT; cnt++) {
-		if(MBServoSerialTable[cnt].MBRegNum == regNum){
-			res = &MBServoSerialTable[cnt];
-			break;
+
+	if(app_mb_holdreg_exists(iRegIndex) == SUCCESS) {
+		for(uint8_t cnt = 0; cnt < MB_HOLDREGS_CNT; cnt++) {
+			if(MBHoldRegsTable[cnt].MBRegNum == iRegIndex){
+				res = &MBHoldRegsTable[cnt];
+				break;
+			}
 		}
 	}
 
 	return res;
 }
 
-uint8_t app_mb_holdreg_exists(uint16_t regNum) {
-	// Если регистр больше самого полседнего элемента или
-	// находится между регистрами настройки устройства и регистрами памяти серво
-	if((regNum >= MB_SERVO_DATA_LEN) || (regNum >= MB_IDX_RW_UNIT_DATA_LEN && regNum < MB_IDX_SERVO_DATA_START))
-		return 0;
+ErrorStatus app_mb_holdreg_exists(uint16_t iRegIndex) {
 
-	return 1;
+	// находим номер привода
+	int8_t num = (iRegIndex >> 6) - 1;
+	// находим номер параметра
+	iRegIndex &= 0x3F;
+
+	// количество слотов не больше 32х
+	if(num > 32)
+		return ERROR;
+
+	// регистры устройства
+	if(num == -1 && iRegIndex >= MB_IDX_RW_UNIT_DATA_LEN)
+		return ERROR;
+
+	// регистры приводов
+	if(num >= 0 && iRegIndex >= MB_SERVO_DATA_LEN)
+		return ERROR;
+
+
+	return SUCCESS;
+
 }
 
 //--- InRegs Funcs ---------------------/
@@ -330,25 +355,37 @@ MBRegsTableNote_t *app_mb_inreg_note_find(uint16_t regNum) {
 	return res;
 }
 
-uint8_t app_mb_inreg_exists(uint16_t regNum) {
-	// Если регистр больше самого полседнего элемента или
-	// находится между регистрами настройки устройства и регистрами памяти серво
-	if((regNum >= MB_IDX_RO_CNT) || (regNum >= MB_INDEG_DEV_DATA_LEN && regNum < MB_IDX_SERVO_DATA_START))
-		return 0;
+ErrorStatus app_mb_inreg_exists(uint16_t iRegIndex) {
 
-	return 1;
+	// находим номер привода
+	int8_t num = (iRegIndex >> 6) - 1;
+	// находим номер параметра
+	iRegIndex &= 0x3F;
+
+	// количество слотов не больше 32х
+	if(num > 32)
+		return ERROR;
+
+	// регистры устройства
+	if(num == -1 && iRegIndex >= MB_INDEG_DEV_DATA_LEN)
+		return ERROR;
+
+	// регистры приводов
+	if(num >= 0 && iRegIndex >= MB_IDX_RO_CNT)
+		return ERROR;
+
+
+	return SUCCESS;
 }
 
-uint8_t app_mb_inreg_set(uint16_t regNum, int16_t value) {
+uint8_t device_data_update(uint16_t regNum, int16_t value) {
 
-	if(app_mb_inreg_exists(regNum)) {
+	if(regNum < MB_INDEG_DEV_DATA_LEN) {
 		usSRegInBuf[regNum] = value;
 		return SUCCESS;
 	}
 	else
 		return ERROR;
-
-
 }
 
 //--- CoilRegs Funcs ---------------------/
@@ -360,17 +397,30 @@ MBRegsTableNote_t *app_mb_coil_note_find(uint16_t regNum) {
 			break;
 		}
 	}
-
 	return res;
 }
 
-uint8_t app_mb_coil_exists(uint16_t regNum) {
-	// Если регистр больше самого полседнего элемента или
-	// находится между регистрами настройки устройства и регистрами памяти серво
-	if((regNum >= MB_COILS_DATA_LEN) || (regNum >= MB_COIL_DEV_DATA_LEN && regNum < MB_IDX_SERVO_DATA_START))
-		return 0;
+ErrorStatus app_mb_coil_exists(uint16_t iRegIndex) {
 
-	return 1;
+	// находим номер привода
+	int8_t num = (iRegIndex >> 6) - 1;
+	// находим номер параметра
+	iRegIndex &= 0x3F;
+
+	// количество слотов не больше 32х
+	if(num > 32)
+		return ERROR;
+
+	// регистры устройства
+	if(num == -1 && iRegIndex >= MB_COIL_DEV_DATA_LEN)
+		return ERROR;
+
+	// регистры приводов
+	if(num >= 0 && iRegIndex >= MB_COILS_DATA_LEN)
+		return ERROR;
+
+
+	return SUCCESS;
 }
 
 //--- DescreteInRegs Funcs ---------------------/

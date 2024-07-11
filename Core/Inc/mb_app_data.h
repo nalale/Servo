@@ -47,20 +47,21 @@ typedef struct {
 } MBRegsTableNote_t;
 
 void app_mb_data_init();
-void app_mb_cfg_data_store();
+void app_mb_cmd_proc(void);
 
 uint8_t app_mb_holdregs_req_get(QueueCmd_t *out);
 
-uint8_t app_mb_inreg_set(uint16_t regNum, int16_t value);
-
-MBRegsTableNote_t *app_mb_note_find(uint16_t regNum);
+MBRegsTableNote_t *app_mb_holdreg_find(uint16_t regNum);
 MBRegsTableNote_t *app_mb_inreg_note_find(uint16_t regNum);
 MBRegsTableNote_t *app_mb_coil_note_find(uint16_t regNum);
 
-uint8_t app_mb_holdreg_exists(uint16_t regNum);
-uint8_t app_mb_inreg_exists(uint16_t regNum);
-uint8_t app_mb_coil_exists(uint16_t regNum);
+ErrorStatus app_mb_holdreg_exists(uint16_t iRegIndex);
+ErrorStatus app_mb_inreg_exists(uint16_t iRegIndex);
+ErrorStatus app_mb_coil_exists(uint16_t regNum);
 uint8_t app_mb_din_exists(uint16_t regNum, uint16_t bitNum);
+
+// Обновить данные, относящиеся к устройству
+uint8_t device_data_update(uint16_t regNum, int16_t value);
 
 
 #endif /* SRC_MB_APP_DATA_H_ */

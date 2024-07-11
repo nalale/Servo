@@ -30,6 +30,7 @@
 #include "dwt_stm32_delay.h"
 #include "74HC165.h"
 #include "mb_app_data.h"
+#include "app_cfg_data.h"
 
 /* USER CODE END Includes */
 
@@ -56,7 +57,6 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
 
 /* USER CODE END PV */
 
@@ -91,7 +91,6 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	uint32_t led_tick_ts = 0;
-	uint32_t sys_tick_ts = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -127,6 +126,18 @@ int main(void)
   shift_reg_init(0, USER_SWITCH_SENS_NUMBER);
   app_mb_data_init();
 
+  volatile uint32_t delay_cnt = msTimer_Now();
+  // Задержка при включении, для того чтобы успели инициализировать сервоприводы
+  do {
+	  if(msTimer_DiffFrom(led_tick_ts) >= 500) {
+
+		  HAL_GPIO_TogglePin(SYSLED_B_GPIO_Port, SYSLED_B_Pin);
+		  led_tick_ts = HAL_GetTick();
+	  }
+  } while(msTimer_DiffFrom(delay_cnt) < 2000);
+
+  HAL_GPIO_WritePin(SYSLED_G_GPIO_Port, SYSLED_B_Pin, RESET);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -135,26 +146,28 @@ int main(void)
   {
 	  // Опрос ModBus
 	  eMBPoll();
+	  // Обработка команда приложения
+	  app_mb_cmd_proc();
 	  // Обработка сервоприводов
 	  ServoCtrl_Process();
 	  // обработка концевиков
 	  shift_reg_proccess(&ucSDiscInBuf[MB_IDX_DIN_SW_1_8_STATE], USER_SWITCH_SENS_NUMBER);
 
-	  if(msTimer_DiffFrom(led_tick_ts) > 500) {
+	  // Индикация Led
+	  ServoCtrlStep_t step = ServoCtrl_StepGet();
+	  uint16_t led_period = 500;
+
+	  if(step == STATE_SCAN)
+		  led_period = 200;
+	  else if(step == STATE_POLL)
+		  led_period = 500;
+	  else if(step == STATE_STANDBY)
+		  led_period = 2000;
+
+	  if(msTimer_DiffFrom(led_tick_ts) > led_period) {
 
 		  HAL_GPIO_TogglePin(SYSLED_G_GPIO_Port, SYSLED_G_Pin);
 		  led_tick_ts = HAL_GetTick();
-	  }
-
-	  if(msTimer_DiffFrom(sys_tick_ts) > 50) {
-
-		  MBRegsTableNote_t* holdReg = app_mb_coil_note_find(MB_IDX_COIL_FLASH_WRITE);
-		  if(*holdReg->pMBRegValue) {
-			  app_mb_cfg_data_store();
-			  *holdReg->pMBRegValue = 0;
-		  }
-
-		  sys_tick_ts = HAL_GetTick();
 	  }
 
     /* USER CODE END WHILE */
@@ -432,6 +445,10 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void app_cfg_data_store(void) {
+	app_cfg_save(&app_cfg_data);
+}
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {

@@ -16,6 +16,7 @@
 
 #define DEFAULT_SERVO_ID 	1
 
+typedef enum { STATE_SCAN = 0, STATE_POLL, STATE_STANDBY} ServoCtrlStep_t;
 typedef enum { No_Action = 0, SwitchAction_Stop, SwitchAction_Slowdown } SwitchAction_t;
 
 // указатель на функцию записи параметра
@@ -23,6 +24,8 @@ typedef int (*pWriteParam)(ServoST3215* item, int16_t param);
 
 void ServoCtrl_Init(void *phuart);
 void ServoCtrl_Process(void);
+
+ServoCtrlStep_t ServoCtrl_StepGet(void);
 
 
 #endif /* SRC_SERVO_CONTROL_H_ */

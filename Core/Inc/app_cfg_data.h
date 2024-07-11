@@ -10,12 +10,15 @@
 
 
 #define FW_VER_MAJ	0
-#define FW_VER_MIN	2
+#define FW_VER_MIN	8
 
 #define HW_VER_MAJ	0
 #define HW_VER_MIN	1
 
 #define CFG_MAX_DATA_LEN	512
+
+#define CFG_VALID		0x55
+#define CFG_NOT_VALID	0xAA
 
 typedef struct {
 	uint16_t CRC_16;
@@ -45,22 +48,13 @@ typedef struct {
 	app_servo_cfg_t servoCfg[32];
 } app_cfg_data_t;
 
-typedef struct {
-	uint16_t CRC_16;
-
-	union {
-		uint8_t *data;
-		app_cfg_data_t *cfg;
-	};
-
-} app_cfg_t;
-
 
 #define APP_CFG_FLASH_ADDRESS	0x0801FC00
 #define SERVO_CFG_FLASH_ADDRESS	(APP_CFG_FLASH_ADDRESS + sizeof(app_device_settings_t))
 
+extern app_cfg_data_t app_cfg_data;
 
-uint8_t app_cfg_save(uint8_t* cfg_buf, uint16_t len);//app_cfg_t *app_cfg);
-uint8_t app_cfg_load(uint8_t* cfg_buf, uint16_t len);//app_cfg_t *app_cfg);
+uint8_t app_cfg_save(app_cfg_data_t* cfg_buf);
+uint8_t app_cfg_load(app_cfg_data_t* cfg_buf);
 
 #endif /* INC_APP_CFG_DATA_H_ */

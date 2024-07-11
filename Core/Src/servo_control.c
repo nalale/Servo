@@ -23,11 +23,11 @@ extern MBRegsTableNote_t MBServoSerialTable[];
 ServoST3215 servoItem[32];
 
 
-typedef enum { STATE_SCAN = 0, STATE_POLL, } ServoCtrlStep_t;
+
 typedef enum { SCAN_WAIT = 0, SCAN_SUCCESS, SCAN_TIMEOUT } ServoCtrlScanResult_t;
 
 
-static uint32_t requestsPeriods[Req_Cnt] = { 1000, 50, 0 };
+static uint32_t requestsPeriods[Req_Cnt] = { 1000, 50, 2000 };
 static ServoCtrlStep_t ServoCtrlStep;
 static uint8_t ServoDriveNumber;
 
@@ -37,9 +37,12 @@ static int8_t actual_data_parse(ServoST3215 *this, uint8_t *pDataBuf);
 static int8_t cfg_data_parse(ServoST3215 *this, uint8_t *pDataBuf);
 static ServoCtrlScanResult_t ServoCtrl_Scan(ServoST3215 *this, uint8_t Id);
 static ServoCtrlScanResult_t ServoCtrl_Poll(ServoST3215 *this);
-static void ServoCtrl_Req(ServoST3215 *this, MB_RegType_t RegType, uint16_t iRegIndex, uint16_t InData);
+static uint8_t ServoCtrl_Req(ServoST3215 *this, MB_RegType_t RegType, uint16_t iRegIndex, uint16_t InData);
 
+ServoCtrlStep_t ServoCtrl_StepGet() {
 
+	return ServoCtrlStep;
+}
 
 void ServoCtrl_Init(void *phuart) {
 	ServoSerialBusInit(phuart);
@@ -60,7 +63,7 @@ void ServoCtrl_Process() {
 
 		if(result == SCAN_SUCCESS) {
 			servoST3215_init(&servoItem[servo_num], servo_id, NULL);
-			app_mb_inreg_set(MB_INREG_DEV_SLOT_1_SERVO_ID + servo_num, servo_id);
+			device_data_update(MB_INREG_DEV_SLOT_1_SERVO_ID + servo_num, servo_id);
 
 			servo_num++;
 			servo_id++;
@@ -70,10 +73,20 @@ void ServoCtrl_Process() {
 
 		// если прошли все ID у всех 32х приводов
 		if(servo_id > 253 || servo_num > 31) {
-			app_mb_inreg_set(MB_INREG_DEV_SERVO_NUM, servo_num);
-			ServoDriveNumber = servo_num;
+			if(device_data_update(MB_INREG_DEV_SERVO_NUM, servo_num) == SUCCESS)
+			{
+				ServoDriveNumber = servo_num;
+
+				if(servo_num == 0)
+					ServoCtrlStep = STATE_STANDBY;
+				else
+					ServoCtrlStep = STATE_POLL;
+			}
+			else
+				ServoCtrlStep = STATE_STANDBY;
+
 			servo_num = 0;
-			ServoCtrlStep = STATE_POLL;
+			servo_id = 0;
 		}
 	}
 		break;
@@ -90,10 +103,14 @@ void ServoCtrl_Process() {
 				uint8_t num = (newCmd.iRegIndex >> 6) - 1;
 				uint16_t regIdx = (newCmd.iRegIndex & 0x3F) + 64;
 
-				//newCmd.iRegIndex &= 0x3F;
-				//newCmd.iRegIndex += 64;
+				uint8_t res = ServoCtrl_Req(&servoItem[num], (MB_RegType_t)newCmd.RegType, regIdx, newCmd.InData);
 
-				ServoCtrl_Req(&servoItem[num], (MB_RegType_t)newCmd.RegType, regIdx, newCmd.InData);
+				// Если изменили ID, сделать scan заново
+				if(res) {
+					ServoCtrlStep = STATE_SCAN;
+					servo_num = 0;
+					servo_id = 0;
+				}
 			}
 			else if(++servo_num >= ServoDriveNumber)
 				servo_num = 0;
@@ -101,6 +118,9 @@ void ServoCtrl_Process() {
 
 		break;
 	}
+
+	case STATE_STANDBY:
+		break;
 	}
 }
 
@@ -150,8 +170,9 @@ static ServoCtrlScanResult_t ServoCtrl_Scan(ServoST3215 *this, uint8_t Id) {
 	return SCAN_WAIT;
 }
 
-static void ServoCtrl_Req(ServoST3215 *this, MB_RegType_t RegType, uint16_t iRegIndex, uint16_t InData) { //QueueCmd_t *newCmd) {
+static uint8_t ServoCtrl_Req(ServoST3215 *this, MB_RegType_t RegType, uint16_t iRegIndex, uint16_t InData) {
 	ServoEventType_t Event;
+	uint8_t rescan_req = 0;
 
 /*	uint16_t iRegIndex = newCmd->iRegIndex;
 	uint16_t RegType = newCmd->RegType;
@@ -167,22 +188,22 @@ static void ServoCtrl_Req(ServoST3215 *this, MB_RegType_t RegType, uint16_t iReg
 				// проверить условия концевиков, если возврат ошибки, не выполнять команду
 				if(sw_sens_check_condition(this, InData) == ERROR)
 					break;
-			}
+			} else if(iRegIndex == MB_IDX_RW_SERVO_ID)
+				rescan_req = 1;
 
 			// выбрать нужную функцию записи и передать параметр
 			if(RegType == MB_RegType_HoldReg)
-				holdReg = app_mb_note_find(iRegIndex);
+				holdReg = app_mb_holdreg_find(iRegIndex);
 			else if(RegType == MB_RegType_Coil)
 				holdReg = app_mb_coil_note_find(iRegIndex);
+			else
+				return rescan_req;
 
-			// проверяем указатель
-			// сделать поиск по номеру регистра MB, а не индекс
 			if(holdReg->pWriteParam != NULL) {
 				holdReg->pWriteParam(this, (int16_t)InData);
 
 				// Обновить данные EEPROM
-				this->readSRAM = 0;
-				this->currentRequest = Req_Write;
+				//this->readSRAM = 0;
 			}
 		}
 
@@ -192,6 +213,7 @@ static void ServoCtrl_Req(ServoST3215 *this, MB_RegType_t RegType, uint16_t iReg
 			break;
 		}
 	}
+	return rescan_req;
 }
 
 static ServoCtrlScanResult_t ServoCtrl_Poll(ServoST3215 *this) {
@@ -208,7 +230,7 @@ static ServoCtrlScanResult_t ServoCtrl_Poll(ServoST3215 *this) {
 		switch(Event) {
 		case SERVO_READY:
 
-			if(++(this->currentRequest) >= Req_Write)
+			if(++(this->currentRequest) > Req_Write)
 				this->currentRequest = Req_Ping;
 
 			result = SCAN_SUCCESS;
@@ -227,7 +249,8 @@ static ServoCtrlScanResult_t ServoCtrl_Poll(ServoST3215 *this) {
 					}
 				}
 				else if(this->currentRequest == Req_Write) {
-
+					this->readSRAM = 0;
+					readServoMemory(this->servoId, SMS_STS_WB_MAJ_VER, EEPROM_MEM_SIZE);
 				}
 
 				result = SCAN_WAIT;
@@ -251,6 +274,7 @@ static ServoCtrlScanResult_t ServoCtrl_Poll(ServoST3215 *this) {
 			if(ServoSerialTimeoutCheck()) {
 				ServoSerialWaitingExpired();
 				result = SCAN_TIMEOUT;
+				Instruction = this->currentRequest + 1;
 			}
 			else
 				result = SCAN_WAIT;
@@ -271,6 +295,9 @@ static ServoCtrlScanResult_t ServoCtrl_Poll(ServoST3215 *this) {
 	break;
 
 	case INST_READ: {
+		if(result == SCAN_TIMEOUT)
+			this->readSRAM = 1;
+
 		// парсинг данных из RO SRAM или RW EEPROM/SRAM
 		if(this->readSRAM) {
 			actual_data_parse(this, pDataBuf);

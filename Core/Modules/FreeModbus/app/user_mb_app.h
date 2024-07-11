@@ -149,7 +149,7 @@ typedef enum {
 #define S_DISCRETE_INPUT_NDISCRETES   64 //18 * 8
 
 #define S_COIL_START                  0
-#define S_COIL_NCOILS                 66 // MB_COILS_DATA_LEN//64
+#define S_COIL_NCOILS                 (MB_IDX_SERVO_DATA_START + (MB_IDX_SERVO_DATA_START * 32)) // MB_COILS_DATA_LEN//64
 
 #define S_REG_INPUT_START             0
 #define S_REG_INPUT_NREGS             (MB_IDX_SERVO_DATA_START + (MB_IDX_SERVO_DATA_START * 32))//75

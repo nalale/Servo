@@ -80,19 +80,12 @@ eMBErrorCode eMBRegInputCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNReg
         iRegIndex = usAddress - usRegInStart;
         while (usNRegs > 0)
         {
-        	/*if(!app_mb_inreg_exists(usNRegs))
-        		continue;
-			*/
+        	if(app_mb_inreg_exists(iRegIndex) == ERROR){
+        		eStatus = MB_ENOREG;
+        		break;
+        	}
 
-/*        	MBRegsTableNote_t *reg = app_mb_inreg_note_find(iRegIndex);
 
-			if(reg == NULL) {
-				eStatus = MB_ENOREG;
-				break;
-			}
-
-			int16_t value = *(reg->pMBRegValue);
-*/
         	int16_t value = 0;
         	uint8_t status = 0;
 
@@ -159,17 +152,11 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
         case MB_REG_READ:
             while (usNRegs > 0)
             {
-                /**pucRegBuffer++ = (UCHAR) (pusRegHoldingBuf[iRegIndex] >> 8);
-                *pucRegBuffer++ = (UCHAR) (pusRegHoldingBuf[iRegIndex] & 0xFF); */
+            	if(app_mb_holdreg_exists(iRegIndex) == ERROR){
+					eStatus = MB_ENOREG;
+					break;
+				}
 
-            	/*MBRegsTableNote_t *reg = app_mb_note_find(iRegIndex);
-
-            	if(reg == NULL) {
-            		eStatus = MB_ENOREG;
-            		break;
-            	}
-
-            	int16_t value = *(reg->pMBRegValue);*/
             	int16_t value = 0;
             	int8_t status = 0;
             	if(eMBRegInputReadCB != 0)
@@ -192,20 +179,14 @@ eMBErrorCode eMBRegHoldingCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNR
         case MB_REG_WRITE:
             while (usNRegs > 0)
             {
-                //pusRegHoldingBuf[iRegIndex] = *pucRegBuffer++ << 8;
-                //pusRegHoldingBuf[iRegIndex] |= *pucRegBuffer++;
-
-            	int16_t val = *pucRegBuffer++ << 8;
-            	val |= *pucRegBuffer++;
-
-/*            	MBRegsTableNote_t *reg = app_mb_note_find(iRegIndex);
-            	if(reg == NULL) {
+            	if(app_mb_holdreg_exists(iRegIndex) == ERROR){
 					eStatus = MB_ENOREG;
 					break;
 				}
 
-				*(reg->pMBRegValue) = val;
-*/
+            	int16_t val = *pucRegBuffer++ << 8;
+            	val |= *pucRegBuffer++;
+
                 /* add request to queue */
                 if(eMBRegHoldingWriteCB != 0)
                 	eMBRegHoldingWriteCB(MB_RegType_HoldReg, iRegIndex, val);
@@ -266,16 +247,22 @@ eMBErrorCode eMBRegCoilsCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNCoi
         case MB_REG_READ:
             while (usNCoils > 0)
             {
-                //*pucRegBuffer++ = xMBUtilGetBits(&pucCoilBuf[iRegIndex++], iRegBitIndex, 8);
-                //iNReg--;
-            	MBRegsTableNote_t *reg = app_mb_coil_note_find(iRegIndex);
+            	int16_t value = 0;
+				int8_t status = 0;
 
-				if(reg == NULL) {
+            	if(app_mb_coil_exists(iRegIndex) == ERROR) {
 					eStatus = MB_ENOREG;
 					break;
 				}
 
-				int16_t value = *(reg->pMBRegValue);
+				if(eMBRegInputReadCB != 0)
+					status = eMBRegInputReadCB(MB_RegType_Coil, iRegIndex, (USHORT*)&value);
+
+				if(status) {
+					eStatus = MB_ENOREG;
+					break;
+				}
+
 				*pucRegBuffer++ = (UCHAR)value;
 
 				iRegIndex++;
@@ -296,15 +283,12 @@ eMBErrorCode eMBRegCoilsCB(UCHAR * pucRegBuffer, USHORT usAddress, USHORT usNCoi
 				//pusRegHoldingBuf[iRegIndex] = *pucRegBuffer++ << 8;
 				//pusRegHoldingBuf[iRegIndex] |= *pucRegBuffer++;
 
-				MBRegsTableNote_t *reg = app_mb_coil_note_find(iRegIndex);
-				if(reg == NULL) {
+				if(app_mb_coil_exists(iRegIndex) == ERROR) {
 					eStatus = MB_ENOREG;
 					break;
 				}
 
 				int16_t val = *pucRegBuffer++;
-
-				*(reg->pMBRegValue) = val;
 
 				/* add request to queue */
 				if(eMBRegHoldingWriteCB != 0)
@@ -386,12 +370,10 @@ eMBErrorCode eMBRegDiscreteCB( UCHAR * pucRegBuffer, USHORT usAddress, USHORT us
 		if(status) {
 			return MB_ENOREG;
 		}
-        //ReadInputParameters(MB_RegType_DIn, iRegIndex, pucDiscreteInputBuf);
 
         while (iNReg > 0)
         {
-            *pucRegBuffer++ = xMBUtilGetBits(&pucDiscreteInputBuf[iRegIndex++],
-                    iRegBitIndex, 8);
+            *pucRegBuffer++ = xMBUtilGetBits(&pucDiscreteInputBuf[iRegIndex++], iRegBitIndex, 8);
             iNReg--;
         }
         pucRegBuffer--;
