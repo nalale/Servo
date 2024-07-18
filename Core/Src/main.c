@@ -164,6 +164,8 @@ int main(void)
 	  else if(step == STATE_STANDBY)
 		  led_period = 2000;
 
+
+
 	  if(msTimer_DiffFrom(led_tick_ts) > led_period) {
 
 		  HAL_GPIO_TogglePin(SYSLED_G_GPIO_Port, SYSLED_G_Pin);

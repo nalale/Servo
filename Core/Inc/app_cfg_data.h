@@ -10,7 +10,7 @@
 
 
 #define FW_VER_MAJ	0
-#define FW_VER_MIN	8
+#define FW_VER_MIN	9
 
 #define HW_VER_MAJ	0
 #define HW_VER_MIN	1

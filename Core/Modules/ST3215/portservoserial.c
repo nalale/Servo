@@ -61,6 +61,13 @@ bool PortServoSerialPutByte(int8_t ucByte)
 
 bool PortServoSerialPutBytes(volatile uint8_t *ucByte, uint16_t usSize)
 {
+	volatile uint8_t b = 0;
+
+	while(__HAL_UART_GET_FLAG(uart, UART_FLAG_RXNE))
+	{
+		b = uart->Instance->DR;
+	}
+
 	HAL_UART_Transmit_IT(uart, (uint8_t *)ucByte, usSize);
 	return true;
 }
@@ -99,6 +106,7 @@ uint8_t PortServoSerial_RxCpltCallback(void *huart)
 	{
 		//pxMBFrameCBByteReceived();
 		uint8_t bytes_await = receivePacket();
+
 		if(bytes_await > 0)
 			HAL_UART_Receive_IT(uart, (uint8_t*)arrayChar, bytes_await);
 		else

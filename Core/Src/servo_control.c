@@ -295,8 +295,10 @@ static ServoCtrlScanResult_t ServoCtrl_Poll(ServoST3215 *this) {
 	break;
 
 	case INST_READ: {
-		if(result == SCAN_TIMEOUT)
+		if(result == SCAN_TIMEOUT) {
 			this->readSRAM = 1;
+			break;
+		}
 
 		// парсинг данных из RO SRAM или RW EEPROM/SRAM
 		if(this->readSRAM) {
