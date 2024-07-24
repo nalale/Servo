@@ -76,8 +76,12 @@ void sw_sens_handle(ServoST3215 *servo) {
 
 			if((servo->sw_neg_slow || servo->sw_pos_slow) &&
 				((swState == SwitchSens_Empty || swState == SwitchSens_Off)&& swPrevState == 1) &&
-				servo->normal_speed > 0)
-				eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, servo->normal_speed);
+				servo->normal_speed > 0) {
+
+				uint16_t iRegIdx = MB_IDX_RW_RUNNING_SPEED + MB_IDX_SERVO_DATA_START * servo->slotNum;
+				QueueCmd_t cmd = {MB_RegType_HoldReg, iRegIdx, servo->normal_speed};
+				RingBuffer_Insert(&InMsgBuf, &cmd);
+			}
 
 			servo->sw_neg_stop = (sens < 2)? 0 : servo->sw_neg_stop;
 			servo->sw_pos_stop = (sens >= 2)? 0 : servo->sw_pos_stop;
@@ -103,7 +107,9 @@ void ServoSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t 
 
 		if(swState == 1 && swPrevState == 0) {
 			// остановить
-			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_TARGET_POS, act_pos);
+			uint16_t iRegIdx = MB_IDX_RW_TARGET_POS + MB_IDX_SERVO_DATA_START * servo->slotNum;
+			QueueCmd_t cmd = {MB_RegType_HoldReg, iRegIdx, act_pos};
+			RingBuffer_Insert(&InMsgBuf, &cmd);
 		}
 		break;
 	case SwitchAction_Slowdown:
@@ -116,11 +122,15 @@ void ServoSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t 
 
 			// добавить в очередь команду задания ускорения
 			int16_t acc = servo->RW_MemData.sw_sens_cfg.CFG_SLOWDOWN_DEACC;
-			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_ACC, acc);
+			uint16_t iRegIdx = MB_IDX_RW_ACC + MB_IDX_SERVO_DATA_START * servo->slotNum;
+			QueueCmd_t cmd = {MB_RegType_HoldReg, iRegIdx, acc};
+			RingBuffer_Insert(&InMsgBuf, &cmd);
 
 			// добавить в очередь команду задани скорости
 			int16_t speed = servo->RW_MemData.sw_sens_cfg.CFG_SLOWDOWN_SPEED;
-			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, speed);
+			iRegIdx = MB_IDX_RW_RUNNING_SPEED + MB_IDX_SERVO_DATA_START * servo->slotNum;
+			QueueCmd_t cmd2 = {MB_RegType_HoldReg, iRegIdx, speed};
+			RingBuffer_Insert(&InMsgBuf, &cmd2);
 		}
 
 		break;
@@ -160,7 +170,11 @@ void MotorSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t 
 			int16_t delta_step = 0.2f * speed;
 			act_pos -= delta_step;
 
-			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_TARGET_POS, -act_pos);
+			uint16_t iRegIdx = MB_IDX_RW_TARGET_POS + MB_IDX_SERVO_DATA_START * servo->slotNum;
+			QueueCmd_t newCmd = {MB_RegType_HoldReg, iRegIdx, -act_pos};
+			RingBuffer_Insert(&InMsgBuf, &newCmd);
+
+			//eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_TARGET_POS, -act_pos);
 		}
 		break;
 	case SwitchAction_Slowdown:
@@ -173,10 +187,17 @@ void MotorSwitchProc(ServoST3215 *servo, uint8_t sens, uint8_t swState, uint8_t 
 
 			// добавить в очередь команду задания ускорения
 			int16_t acc = servo->RW_MemData.sw_sens_cfg.CFG_SLOWDOWN_DEACC;
-			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_ACC, acc);
+			uint16_t iRegIdx = MB_IDX_RW_ACC + MB_IDX_SERVO_DATA_START * servo->slotNum;
+			QueueCmd_t newCmd = {MB_RegType_HoldReg, iRegIdx, acc};
+			RingBuffer_Insert(&InMsgBuf, &newCmd);
+			//eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_ACC, acc);
+
 			// добавить в очередь команду задани скорости
 			int16_t speed = servo->RW_MemData.sw_sens_cfg.CFG_SLOWDOWN_SPEED;
-			eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, speed);
+			iRegIdx = MB_IDX_RW_ACC + MB_IDX_SERVO_DATA_START * servo->slotNum;
+			QueueCmd_t cmd_2 = {MB_RegType_HoldReg, iRegIdx, speed};
+			RingBuffer_Insert(&InMsgBuf, &cmd_2);
+			//eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, speed);
 		}
 
 		break;
@@ -208,11 +229,15 @@ uint8_t sw_sens_check_condition(ServoST3215 *servo, uint16_t InData) {
 	}
 
 	if(servo->sw_neg_slow && ((int16_t)InData > 0)) {
-		eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, servo->normal_speed);
+		uint16_t iRegIdx = MB_IDX_RW_RUNNING_SPEED + MB_IDX_SERVO_DATA_START * servo->slotNum;
+		QueueCmd_t cmd = {MB_RegType_HoldReg, iRegIdx, servo->normal_speed};
+		RingBuffer_Insert(&InMsgBuf, &cmd);
 	}
 
 	if(servo->sw_pos_slow && ((int16_t)InData < 0)) {
-		eMBRegHoldingWriteCB(MB_RegType_HoldReg, MB_IDX_RW_RUNNING_SPEED, servo->normal_speed);
+		uint16_t iRegIdx = MB_IDX_RW_RUNNING_SPEED + MB_IDX_SERVO_DATA_START * servo->slotNum;
+		QueueCmd_t cmd = {MB_RegType_HoldReg, iRegIdx, servo->normal_speed};
+		RingBuffer_Insert(&InMsgBuf, &cmd);
 	}
 
 	return SUCCESS;

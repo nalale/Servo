@@ -123,7 +123,6 @@ typedef struct {
 	int16_t cmdRunningTime;
 	int16_t cmdSpeed;
 	int16_t TorqueLimit;
-	int16_t UnlockEEPROM;
 } Servo_FLASH_CmdData_t;
 
 typedef struct {
@@ -210,6 +209,7 @@ typedef struct {
 
     // Accessors (updated by poll() )
     uint8_t   servoId;
+    uint8_t 	slotNum;
     //ServoActualData_t *pActualData;
     uint8_t *pActualData;
 
@@ -240,7 +240,7 @@ typedef struct {
 } ServoST3215;
 
 
-extern void servoST3215_init(ServoST3215 *this, uint8_t id, void *dHUART);
+extern void servoST3215_init(ServoST3215 *this, uint8_t id, uint8_t slotNum, void *dHUART);
 // Does the servo exist (i.e. respond to ping?)
 extern bool servoST3215_exists(ServoST3215 *item);
 // Ping the servo

@@ -9,6 +9,7 @@
 #define SRC_MB_APP_DATA_H_
 
 #include "servo_control.h"
+#include "RingBuffer/ring_buffer.h"
 
 typedef struct {
 	uint16_t RegType;
@@ -62,6 +63,8 @@ uint8_t app_mb_din_exists(uint16_t regNum, uint16_t bitNum);
 
 // Обновить данные, относящиеся к устройству
 uint8_t device_data_update(uint16_t regNum, int16_t value);
+
+extern RINGBUFF_T InMsgBuf;
 
 
 #endif /* SRC_MB_APP_DATA_H_ */

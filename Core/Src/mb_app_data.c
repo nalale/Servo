@@ -7,7 +7,6 @@
 
 #include "mb_app_data.h"
 #include "app_cfg_data.h"
-#include "RingBuffer/ring_buffer.h"
 
 
 #define SERVO_MEM_NOT_MAP	{ NULL, SMS_STS_NOT_MAP, 0 }
@@ -19,7 +18,7 @@ uint8_t	ucSDiscInBuf[MB_DIN_DEV_DATA_LEN];
 
 extern ServoST3215 servoItem[32];
 static QueueCmd_t BufArray[10];		// Массив для очереди запросов
-static RINGBUFF_T InMsgBuf;			// Очередь запросов MB
+RINGBUFF_T InMsgBuf;				// Очередь запросов MB
 static 	uint32_t mbProc_ts = 0;
 
 int8_t mb_read_data(uint16_t RegType, uint16_t iRegIndex, uint16_t *Data);
@@ -258,9 +257,28 @@ uint8_t app_mb_holdregs_req_get(QueueCmd_t *out) {
 
 // Сигнал об измении MB Hold Register
 void mb_write_data_req(uint16_t RegType, uint16_t iRegIndex, uint16_t InData) {
-	QueueCmd_t newCmd = {RegType, iRegIndex, InData};
+
+
+	uint8_t num = (iRegIndex >> 6) - 1;			// номер слота с приводом
+	uint16_t regIdx = (iRegIndex & 0x3F);		// номер регистра в приводе
+
+	// TODO: для настройки группового управления и настройки платы
+	if(num < 0)
+		return;
+
+	// Если команда назначается для исполнения сервоприводом,
 	// поместить параметры в кольцевой буффер команд сервопривода
-	RingBuffer_Insert(&InMsgBuf, &newCmd);
+	regIdx += MB_IDX_SERVO_DATA_START;
+	if((regIdx >= MB_IDX_SERVO_DATA_START) && (regIdx < MB_IDX_CFG_SW_START)){
+		QueueCmd_t newCmd = {RegType, iRegIndex, InData};
+		RingBuffer_Insert(&InMsgBuf, &newCmd);
+	}
+	// Если команда для настройки непосредственно платы, то записать сразу
+	else if(regIdx >= MB_IDX_CFG_SW_START) {
+		uint16_t pAddr = regIdx - MB_IDX_SERVO_DATA_START;
+		int16_t *pData = (int16_t*)&servoItem[num].RW_MemData;
+		pData[pAddr] = InData;
+	}
 }
 
 

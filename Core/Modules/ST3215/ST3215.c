@@ -17,8 +17,10 @@
 
 uint8_t parameters[PARAMETERS_DATA_LEN] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-void servoST3215_init(ServoST3215 *this, uint8_t id, void *dHUART) {
+void servoST3215_init(ServoST3215 *this, uint8_t id, uint8_t slotNum, void *dHUART) {
   this->servoId = id;
+  this->slotNum = slotNum;
+
   this->errorState = 0;       // Initialize to no error state
   this->doesExist = 1;         // By default, doesn't exist until it's found by ping()
 

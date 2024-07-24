@@ -10,6 +10,7 @@
 /* -----------------------Slave Defines -------------------------------------*/
 
 #define MB_IDX_SERVO_DATA_START		64
+#define MB_IDX_CFG_SW_START			98
 
 typedef enum {
 	MB_INREG_DEV_FW_VER_MAJ = 0,
@@ -99,10 +100,10 @@ typedef enum {
 	MB_IDX_RW_RUNNING_SPEED,
 	MB_IDX_RW_TORQUE_LIM,
 
-	MB_IDX_CFG_SW_1_NUM,		// датчик при вращении в - сторону
-	MB_IDX_CFG_SW_2_NUM,		// датчик при вращении в - сторону
-	MB_IDX_CFG_SW_3_NUM,		// датчик при вращении в + сторону
-	MB_IDX_CFG_SW_4_NUM,		// датчик при вращении в + сторону
+	MB_IDX_CFG_SW_1_NUM = MB_IDX_CFG_SW_START,		// датчик при вращении в - сторону
+	MB_IDX_CFG_SW_2_NUM,							// датчик при вращении в - сторону
+	MB_IDX_CFG_SW_3_NUM,							// датчик при вращении в + сторону
+	MB_IDX_CFG_SW_4_NUM,							// датчик при вращении в + сторону
 	MB_IDX_CFG_SW_1_ACT,
 	MB_IDX_CFG_SW_2_ACT,
 	MB_IDX_CFG_SW_3_ACT,

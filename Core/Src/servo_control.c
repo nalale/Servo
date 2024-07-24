@@ -62,7 +62,7 @@ void ServoCtrl_Process() {
 		result = ServoCtrl_Scan(&servoItem[servo_num], servo_id);
 
 		if(result == SCAN_SUCCESS) {
-			servoST3215_init(&servoItem[servo_num], servo_id, NULL);
+			servoST3215_init(&servoItem[servo_num], servo_id, servo_num, NULL);
 			device_data_update(MB_INREG_DEV_SLOT_1_SERVO_ID + servo_num, servo_id);
 
 			servo_num++;
